@@ -1,0 +1,331 @@
+---
+title: "Fig_5"
+author: "QD"
+date: "2023-12-04"
+output: html_document
+---
+## First part of Fig 5B (horizontal bar plots).
+```{r}
+label.crc <- create.label(meta=sample_data(CRC_ps),label='Group', case='CRC')
+siamcat_crc <- siamcat(phyloseq=CRC_ps, label=label.crc)
+show(siamcat_crc)
+siamcat_crc <- filter.features(siamcat_crc,filter.method = 'prevalence',cutoff = 0.01) ## Prevalence (non-zero value) at 1%
+siamcat_crc <- normalize.features(siamcat_crc, norm.method = "log.std", norm.param = list(log.n0 = 0.01, sd.min.q = 0.0)) 
+
+crc_meta_random_effect_study <- check.associations(siamcat_crc, formula = "feat ~ label + (1|Study)", test = "lm", feature.type = "normalized") ## Cannot run without the LMM without random effect???
+
+# combine all associations
+df.assoc <- crc_meta_random_effect_study@associations$assoc.results
+df.assoc$cazyme_subfamily <- rownames(df.assoc)
+
+## This is for the GSEA analyses
+crc_meta_random_effect_study_results_associations <- crc_meta_random_effect_study@associations$assoc.results 
+crc_meta_random_effect_study_results_associations$cazyme_fam <- rownames(crc_meta_random_effect_study_results_associations)
+
+
+## Now plot SIAMCAT results
+bar_plots_random_effect_study <- df.assoc %>% mutate(l=case_when(p.adj < 0.05~'*', TRUE~'')) %>% filter(fc > 0.175 | fc < -0.175) %>% filter(p.adj < 0.05) %>% mutate(cazyme_subfamily = fct_reorder(cazyme_subfamily, fc, .desc = TRUE)) %>% mutate(Category=case_when(fc > 0 ~ "CRC", fc < 0 ~ "Control"))
+## Note that for visualization purposes we adapted the fc cutoff to 0.15 and -0.15, rather than 0.1 and -0.1
+
+#scale_y_discrete(labels=NULL,breaks=NULL)+
+bar_plots_random_effect_study <- bar_plots_random_effect_study %>% arrange(fc)
+
+horiz_bar_plots_Fig_5B <- ggplot(bar_plots_random_effect_study)+
+  aes(x = fc, y = cazyme_subfamily, fill = Category)+
+  geom_bar(stat="identity")+
+  theme_classic()+
+  scale_fill_manual(values=c('#3B6FB6','#D41645'))+
+  xlab("Generalized fold change")+
+  theme(axis.title.x = element_text(size = 14)) + 
+  theme(axis.text.x = element_text(size = 11))+
+  theme(axis.text.y = element_text(size = 7))+
+  theme(legend.title=element_text(size = 16))+
+  theme(legend.text=element_text(size = 14))+
+  ylab("") +
+  theme(legend.position = "top") +
+  theme_publication() +
+  theme(axis.text.y = element_text(size = 5))
+```
+
+## Fig 5A
+```{r}
+label.crc <- create.label(meta = sample_data(CRC_ps),label='Group', case='CRC')
+siamcat_crc <- siamcat(phyloseq = CRC_ps, label=label.crc)
+show(siamcat_crc)
+siamcat_crc <- filter.features(siamcat_crc,filter.method = 'prevalence',cutoff = 0.01) ## Prevalence (non-zero value) at 1%
+
+assoc.list <- list()
+
+for (d in levels(siamcat_crc@phyloseq@sam_data$Study)){
+  print(d)
+  meta.train <- subset_samples(siamcat_crc@phyloseq,Study==d)
+  labels_study <- create.label(meta=sample_data(meta.train),label='Group', case='CRC')
+  siamcat_study <- siamcat(phyloseq=meta.train, label=labels_study)
+  siamcat_study <- filter.features(siamcat_study,filter.method = 'prevalence', cutoff = 0.00)
+  # test for associations
+  # This code only works with old SIAMCAT crc_meta <- check.associations(siamcat_study, detect.lim = 1e-06,feature.type = 'original',max.show = 25)
+  # crc_meta <- check.associations(siamcat_study, test = "lm") ## Cannot run this on RPKM values unfortunately? Also wonder how the values should be normalized, log10 normalization seems definitely useful (also for calculating log-fold changes, including for downstream GSEA analyses). What do you think would be useful for pseudocounts in this case? I'd say we can just leave it on the default
+  siamcat_study <- normalize.features(siamcat_study, norm.method = "log.std", norm.param = list(log.n0 = 0.01, sd.min.q = 0.0)) 
+  crc_meta <- check.associations(siamcat_study, test = "lm", feature.type = "normalized")
+  
+  # extract the associations and save them in the assoc.list
+  temp <- associations(crc_meta)
+  temp$cazyme_subfamily <- rownames(temp)
+  assoc.list[[d]] <- temp %>% select(cazyme_subfamily, fc, auc, p.adj) %>% mutate(Study=d)
+}
+# combine all associations
+df.assoc <- bind_rows(assoc.list)
+head(df.assoc)
+
+cazymes_of_interest <- df.assoc %>% group_by(cazyme_subfamily) %>% dplyr::summarise(m=mean(fc), n.filt=any(p.adj < 0.5), .groups='keep') %>% filter(n.filt) %>% dplyr::arrange(m) ## Note that the p.adj value has been changed in the code to 0.5 to allow some hits to be visualized in 
+top_15_pos <- bar_plots_random_effect_study %>% top_n(15,fc) 
+top_15_neg <- bar_plots_random_effect_study %>% top_n(-15,fc)
+top_15_each_direction <- bind_rows(top_15_pos, top_15_neg)
+
+count_samples_study <- meta(CRC_ps)
+count_samples_study <- count_samples_study %>% dplyr::count(Study)
+df.assoc <- left_join(df.assoc, count_samples_study, by = "Study")
+df.assoc$ntest <- paste("(n=", "", df.assoc$n)
+df.assoc$ntest <- paste(df.assoc$ntest, "", ")")
+df.assoc$ntest <- gsub(" ", "", df.assoc$ntest)
+df.assoc$study_n <- paste(df.assoc$Study, df.assoc$ntest)
+
+diff_abundance_crc <- df.assoc %>% # take only genera of interest
+  filter(cazyme_subfamily %in% top_15_each_direction$cazyme_subfamily) %>% 
+  # convert to factor to enforce an ordering by mean AUC
+  mutate(cazyme_subfamily=factor(cazyme_subfamily, levels = rev(bar_plots_random_effect_study$cazyme_subfamily))) %>% ## This code was added to display the same CAZyme family order as in the horizontal bar plots for the GSEA
+  # annotate the cells in the heatmap with stars
+  mutate(l=case_when(p.adj < 0.05~'*', TRUE~'')) %>%  
+  ggplot(aes(y=cazyme_subfamily, x=study_n, fill=fc)) + 
+    geom_tile() + 
+    scale_fill_gradient2(low = '#3B6FB6', high='#D41645', mid = 'white', limits=c(-1.5, 1.5), name='Generalized\nfold change') + 
+    theme_minimal() + 
+    geom_text(aes(label=l), vjust = 0.75) +
+    theme(panel.grid = element_blank()) + 
+    theme(legend.position="top") +
+    theme(legend.key.size = unit(0.9, 'cm')) +
+    xlab('') + ylab('') +
+    theme(axis.text.x = element_text(size=11, angle = 45, hjust = 1, vjust = 1)) + 
+    theme(axis.text.y = element_text(size=10)) + 
+    theme_publication() + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+```
+
+## Second part of figure 5B, including GSEA
+```{r}
+library(fgsea)
+results_associations_FAD_1 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% glycan_annotations_final_cleaned_long_GSEA$Subfamily)
+ranks <- results_associations_FAD_1$fc
+names(ranks) <- results_associations_FAD_1$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes <- fgseaMultilevel(pathways_FAD_1, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes[order(padj, -abs(NES)), ], n=10)
+plotEnrichment(pathways_FAD_1[["GAG"]], ranks)
+plotEnrichment(pathways_FAD_1[["DF"]], ranks)
+plotEnrichment(pathways_FAD_1[["PG"]], ranks)
+plotEnrichment(pathways_FAD_1[["Mucin"]], ranks)
+
+glycan_annotations_final_cleaned_long$Subfamily <- gsub("([A-Z])_","\\1",glycan_annotations_final_cleaned_long$Subfamily)
+
+cazymes_to_display <- crc_meta_random_effect_study_results_associations %>% dplyr::mutate(l=case_when(p.adj < 0.05~'*', TRUE~'')) %>% filter(p.adj < 0.05) %>% dplyr::mutate(cazyme_fam = fct_reorder(cazyme_fam,fc, .desc = TRUE))
+
+cazymes_to_display_substrate_annotations <- glycan_annotations_final_cleaned_long %>% filter(Subfamily %in% cazymes_to_display$cazyme_fam)
+unique(cazymes_to_display_substrate_annotations$FUNCTION_AT_DESTINATION_1) ## There is no unknown category, so this will not give any issues converting NA into Unknown
+cazymes_to_display_substrate_annotations$FUNCTION_AT_DESTINATION_1 <- cazymes_to_display_substrate_annotations$FUNCTION_AT_DESTINATION_1 %>% replace_na("Unknown")
+
+## For dietary fiber
+
+DF_annotations <- cazymes_to_display_substrate_annotations %>% group_by(Subfamily) %>% distinct(FUNCTION_AT_DESTINATION_1) %>% dplyr::mutate(DF = case_when(FUNCTION_AT_DESTINATION_1 == "DF" ~ "Yes",TRUE ~ "No"))
+
+DF_annotations_final <- DF_annotations %>% group_by(Subfamily) %>% dplyr::mutate(DF_Final = ifelse(any(DF == "Yes"),TRUE,FALSE)) %>% ungroup() %>% filter(!(DF_Final & DF =="No")) %>% dplyr::mutate(DF_Final = as.factor(as.character(DF_Final))) %>% dplyr::mutate(DF_Final = recode(DF_Final,"TRUE"="Yes","FALSE"="No")) %>% dplyr::mutate(DF_Final = case_when(FUNCTION_AT_DESTINATION_1=="Unknown" ~ "Unknown",TRUE ~ as.character(DF_Final))) %>% dplyr::mutate(substrate = "DF") %>% dplyr::mutate_at(vars(Subfamily), factor) ## Filter so that if a CAZyme has both annotations with yes and no, that only the yes is kept and to no is filtered out. Also need to have something to put on the x-axis for the plotting (the substrate column). Lastly, also need to make sure that there is a distinction between No and Unknown
+
+row_annotations_DF <- ggplot(DF_annotations_final %>% filter(Subfamily %in% bar_plots_random_effect_study$cazyme_subfamily) %>% droplevels() %>% dplyr::mutate(Subfamily = factor(Subfamily, levels = bar_plots_random_effect_study$cazyme_subfamily))) +
+  theme_classic() +
+  theme_publication() +
+  geom_tile() +
+  aes(x=substrate,y=fct_rev(Subfamily),fill=DF_Final)+
+  scale_fill_manual(values = c("gray94","white", "black"),name="Presence") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  theme(legend.position = "none") +
+  theme(axis.line = element_blank()) +
+  xlab("p-value\n 8.3e-04") + 
+  ylab(NULL)
+
+## For GAGs
+
+GAG_annotations <- cazymes_to_display_substrate_annotations %>% group_by(Subfamily) %>% distinct(FUNCTION_AT_DESTINATION_1) %>% dplyr::mutate(GAG = case_when(FUNCTION_AT_DESTINATION_1 == "GAG" ~ "Yes",TRUE ~ "No"))
+
+GAG_annotations_final <- GAG_annotations %>% group_by(Subfamily) %>% dplyr::mutate(GAG_Final = ifelse(any(GAG == "Yes"),TRUE,FALSE)) %>% ungroup() %>% filter(!(GAG_Final & GAG =="No")) %>% dplyr::mutate(GAG_Final = as.factor(as.character(GAG_Final))) %>% dplyr::mutate(GAG_Final = recode(GAG_Final,"TRUE"="Yes","FALSE"="No")) %>% dplyr::mutate(GAG_Final = case_when(FUNCTION_AT_DESTINATION_1=="Unknown" ~ "Unknown",TRUE ~ as.character(GAG_Final))) %>% dplyr::mutate(substrate = "GAG") %>% dplyr::mutate_at(vars(Subfamily), factor) ## Filter so that if a CAZyme has both annotations with yes and no, that only the yes is kept and to no is filtered out. Also need to have something to put on the x-axis for the plotting (the substrate column)
+
+row_annotations_GAG <- ggplot(GAG_annotations_final %>% filter(Subfamily %in% bar_plots_random_effect_study$cazyme_subfamily) %>% droplevels() %>% dplyr::mutate(Subfamily = factor(Subfamily, levels = bar_plots_random_effect_study$cazyme_subfamily)))+
+  geom_tile()+
+  aes(x=substrate,y=fct_rev(Subfamily),fill=GAG_Final)+
+  scale_fill_manual(values = c("gray94","white", "black"),name="Presence") +
+  theme_classic() + 
+  theme_publication() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  theme(legend.position = "none") +
+  theme(axis.line = element_blank()) +
+  xlab("p-value\n 1.1e-04") + 
+  ylab(NULL)
+
+## For PG
+
+PG_annotations <- cazymes_to_display_substrate_annotations %>% group_by(Subfamily) %>% distinct(FUNCTION_AT_DESTINATION_1) %>% dplyr::mutate(PG = case_when(FUNCTION_AT_DESTINATION_1 == "PG" ~ "Yes",TRUE ~ "No"))
+
+PG_annotations_final <- PG_annotations %>% group_by(Subfamily) %>% dplyr::mutate(PG_Final = ifelse(any(PG == "Yes"),TRUE,FALSE)) %>% ungroup() %>% filter(!(PG_Final & PG =="No")) %>% dplyr::mutate(PG_Final = as.factor(as.character(PG_Final))) %>% dplyr::mutate(PG_Final = recode(PG_Final,"TRUE"="Yes","FALSE"="No")) %>% dplyr::mutate(PG_Final = case_when(FUNCTION_AT_DESTINATION_1=="Unknown" ~ "Unknown",TRUE ~ as.character(PG_Final))) %>% dplyr::mutate(substrate = "PG") %>% dplyr::mutate_at(vars(Subfamily), factor)## Filter so that if a CAZyme has both annotations with yes and no, that only the yes is kept and to no is filtered out. Also need to have something to put on the x-axis for the plotting (the substrate column)
+
+row_annotations_PG <- ggplot(PG_annotations_final %>% filter(Subfamily %in% bar_plots_random_effect_study$cazyme_subfamily) %>% droplevels() %>% dplyr::mutate(Subfamily = factor(Subfamily, levels = bar_plots_random_effect_study$cazyme_subfamily)))+
+  geom_tile()+
+  aes(x=substrate,y=fct_rev(Subfamily),fill=PG_Final)+
+  scale_fill_manual(values = c("gray94","white", "black"),name="Presence") +
+  theme_classic() + 
+  theme_publication() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  #theme(axis.title.x = element_text(size = 9)) +
+  theme(legend.position = "none") +
+  theme(axis.line = element_blank()) +
+  xlab("p-value\n 1.8e-01") + 
+  ylab(NULL)
+
+## For Glycogen
+
+Glycogen_annotations <- cazymes_to_display_substrate_annotations %>% group_by(Subfamily) %>% distinct(FUNCTION_AT_DESTINATION_1) %>% dplyr::mutate(Glycogen = case_when(FUNCTION_AT_DESTINATION_1 == "Glycogen" ~ "Yes",TRUE ~ "No"))
+
+Glycogen_annotations_final <- Glycogen_annotations %>% group_by(Subfamily) %>% dplyr::mutate(Glycogen_Final = ifelse(any(Glycogen == "Yes"),TRUE,FALSE)) %>% ungroup() %>% filter(!(Glycogen_Final & Glycogen =="No")) %>% dplyr::mutate(Glycogen_Final = as.factor(as.character(Glycogen_Final))) %>% dplyr::mutate(Glycogen_Final = recode(Glycogen_Final,"TRUE"="Yes","FALSE"="No")) %>% dplyr::mutate(Glycogen_Final = case_when(FUNCTION_AT_DESTINATION_1=="Unknown" ~ "Unknown",TRUE ~ as.character(Glycogen_Final))) %>%  dplyr::mutate(substrate = "Glycogen") %>% dplyr::mutate_at(vars(Subfamily), factor)## Filter so that if a CAZyme has both annotations with yes and no, that only the yes is kept and to no is filtered out. Also need to have something to put on the x-axis for the plotting (the substrate column)
+
+row_annotations_Glycogen <- ggplot(Glycogen_annotations_final %>% filter(Subfamily %in% bar_plots_random_effect_study$cazyme_subfamily) %>% droplevels() %>% dplyr::mutate(Subfamily = factor(Subfamily, levels = bar_plots_random_effect_study$cazyme_subfamily)))+
+  geom_tile()+
+  aes(x=substrate,y=fct_rev(Subfamily),fill=Glycogen_Final)+
+  scale_fill_manual(values = c("gray94","white", "black"),name="Presence") +
+  theme_classic() + 
+  theme_publication() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  theme(axis.line = element_blank()) +
+  xlab("p-value\n 1.6e-01") + 
+  ylab(NULL)
+
+## For mucin (but very limited sense with only 2 annotated CAZymes)
+
+Mucin_annotations <- cazymes_to_display_substrate_annotations %>% group_by(Subfamily) %>% distinct(FUNCTION_AT_DESTINATION_1) %>% dplyr::mutate(Mucin = dplyr::case_when(FUNCTION_AT_DESTINATION_1 == "Mucin" ~ "Yes",TRUE ~ "No"))
+
+Mucin_annotations_final <- Mucin_annotations %>% group_by(Subfamily) %>% dplyr::mutate(Mucin_Final = ifelse(any(Mucin == "Yes"),TRUE,FALSE)) %>% ungroup() %>% filter(!(Mucin_Final & Mucin =="No")) %>% dplyr::mutate(Mucin_Final = as.factor(as.character(Mucin_Final))) %>% dplyr::mutate(Mucin_Final = recode(Mucin_Final,"TRUE"="Yes","FALSE"="No")) %>% dplyr::mutate(Mucin_Final = case_when(FUNCTION_AT_DESTINATION_1=="Unknown" ~ "Unknown",TRUE ~ as.character(Mucin_Final))) %>% dplyr::mutate(substrate = "Mucin") %>% dplyr::mutate_at(vars(Subfamily), factor)## Filter so that if a CAZyme has both annotations with yes and no, that only the yes is kept and to no is filtered out. Also need to have something to put on the x-axis for the plotting (the substrate column)
+
+row_annotations_Mucin <- ggplot(Mucin_annotations_final %>% filter(Subfamily %in% bar_plots_random_effect_study$cazyme_subfamily) %>% droplevels() %>% dplyr::mutate(Subfamily = factor(Subfamily, levels = bar_plots_random_effect_study$cazyme_subfamily)))+
+  theme_publication() +
+  geom_tile()+
+  aes(x=substrate,y=fct_rev(Subfamily),fill=Mucin_Final)+
+  scale_fill_manual(values = c("gray94","white", "black"),name="Presence") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  theme(legend.position = "none") +
+  theme(axis.line = element_blank()) +
+  xlab("p-value\n 8.9e-02") + 
+  ylab(NULL)
+
+Fig_5B <- horiz_bar_plots_Fig_5B %>% insert_right(row_annotations_DF,width=0.08) %>% insert_right(row_annotations_GAG,width=0.08) %>% insert_right(row_annotations_PG,width=0.08) %>% insert_right(row_annotations_Glycogen,width=0.08) %>% insert_right(row_annotations_Mucin,width=0.08)
+```
+
+## Lastly Extended Data Figure 6
+
+```{r}
+CRC_rel_abun_long <- psmelt(CRC_ps)
+
+substrate_annotation_cazymes <- as.data.frame(do.call(cbind, pathways_FAD_1)) ## Note that this automatically fills missing values with duplicates, so just have to filter out the duplicates and all should be good
+substrate_annotation_cazymes_long <- substrate_annotation_cazymes %>% pivot_longer(cols = everything(), names_to = "Substrate", values_to = "CAZyme") %>% distinct() 
+substrate_annotation_cazymes_long$Substrate <- as.factor(substrate_annotation_cazymes_long$Substrate)
+
+RPKM_per_substrate <- as.data.frame(matrix(ncol = 3, nrow = 0), c("sample_id", "RPKM_sum", "Substrate"))
+
+for (group in levels(substrate_annotation_cazymes_long$Substrate)){
+  print(group)
+  substrate_annotation_tmp <- substrate_annotation_cazymes_long %>% filter(Substrate == group)
+  tmp_df <- CRC_rel_abun_long %>% dplyr::filter(OTU %in% substrate_annotation_tmp$CAZyme)
+  tmp_df <- tmp_df %>% group_by(SampleID) %>% summarise(RPKM_sum = sum(Abundance)) %>% ungroup() %>% add_column(Substrate = group)
+  RPKM_per_substrate <- RPKM_per_substrate %>% rbind(tmp_df)
+}
+
+RPKM_per_substrate_CRC <- left_join(RPKM_per_substrate, CRC_rel_abun_long %>% select(SampleID, Group, Study), by = "SampleID") %>% distinct()
+##RPKM_per_substrate_CRC$RPKM_sum <- RPKM_per_substrate_CRC$RPKM_sum + 0.01
+
+RPKM_per_substrate_CRC_substrate_ratios <- RPKM_per_substrate_CRC %>% pivot_wider(names_from = Substrate, values_from = RPKM_sum) %>% mutate(Mucin_to_DF = Mucin / DF) %>% mutate(GAG_to_DF = GAG / DF)
+
+## Now do the plotting. P-values should probably be obtained through an LMM with study as random effect
+library(lme4)
+library(lmerTest)
+library(ggembl)
+
+mucin_to_df_crc_results <- lmer(Mucin_to_DF ~ Group + (1|Study), data = RPKM_per_substrate_CRC_substrate_ratios)
+rand(mucin_to_df_crc_results)
+
+gag_to_df_crc_results <- lmer(GAG_to_DF ~ Group + (1|Study), data = RPKM_per_substrate_CRC_substrate_ratios)
+rand(gag_to_df_crc_results)
+
+Mucin_to_DF_CRC <- ggplot(RPKM_per_substrate_CRC_substrate_ratios) +
+  #theme_classic() +
+  theme_publication() +
+  aes(x = Group, y = Mucin_to_DF, fill = Group) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_blank()) +
+  xlab("") +
+  ylab("Mucin to DF ratio")
+
+GAG_to_DF_CRC <- ggplot(RPKM_per_substrate_CRC_substrate_ratios) +
+  #theme_classic() +
+  theme_publication() +
+  aes(x = Group, y = GAG_to_DF, fill = Group) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_blank()) +
+  xlab("") +
+  ylab("GAG to DF ratio")
+ 
+Extended_Data_Fig8 <- Mucin_to_DF_CRC + GAG_to_DF_CRC + plot_layout(guides = "collect") + plot_layout(ncol = 2)
+
+## Now compute ratios per study as a Supplementary figure
+RPKM_per_substrate_CRC_substrate_ratios_study <- RPKM_per_substrate_CRC_substrate_ratios %>% mutate(study_n = Study)
+count_samples_study <- meta(CRC_ps)
+count_samples_study <- count_samples_study %>% dplyr::count(Study)
+RPKM_per_substrate_CRC_substrate_ratios_study <- left_join(RPKM_per_substrate_CRC_substrate_ratios_study, count_samples_study, by = "Study")
+RPKM_per_substrate_CRC_substrate_ratios_study$ntest <- paste("(n=", "", RPKM_per_substrate_CRC_substrate_ratios_study$n)
+RPKM_per_substrate_CRC_substrate_ratios_study$ntest <- paste(RPKM_per_substrate_CRC_substrate_ratios_study$ntest, "", ")")
+RPKM_per_substrate_CRC_substrate_ratios_study$ntest <- gsub(" ", "", RPKM_per_substrate_CRC_substrate_ratios_study$ntest)
+RPKM_per_substrate_CRC_substrate_ratios_study$study_n <- paste(RPKM_per_substrate_CRC_substrate_ratios_study$Study, RPKM_per_substrate_CRC_substrate_ratios_study$ntest)
+
+Mucin_to_DF_CRC_study <- ggplot(RPKM_per_substrate_CRC_substrate_ratios_study) +
+  theme_publication() +
+  aes(x = study_n, y = Mucin_to_DF, fill = Group) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  #stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + 
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_blank()) +
+  theme(axis.ticks.x = element_blank()) +
+  xlab("") +
+  ylab("Mucin to DF ratio")
+
+GAG_to_DF_CRC_study <- ggplot(RPKM_per_substrate_CRC_substrate_ratios_study) +
+  theme_publication() +
+  aes(x = study_n, y = GAG_to_DF, fill = Group) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  #stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  theme(axis.ticks.x = element_blank()) +
+  xlab("") +
+  ylab("GAG to DF ratio")
+
+Supplementary_Fig1 <- Mucin_to_DF_CRC_study + GAG_to_DF_CRC_study + plot_layout(guides = "collect") + plot_layout(ncol = 1)
+```

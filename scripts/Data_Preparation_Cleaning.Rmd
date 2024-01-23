@@ -1,0 +1,399 @@
+---
+title: "Data_Preparation_Cleaning"
+author: "QD"
+date: "2023-12-04"
+output: html_document
+---
+
+## Load libraries
+```{r}
+library(tidyverse)
+library(curatedMetagenomicData)
+library(fs)
+library(phyloseq)
+library(SIAMCAT)
+library(microbiome)
+library(readxl)
+library(aplot)
+library(writexl)
+library(ggpubr)
+library(RColorBrewer)
+library(cowplot)
+library(ggplotify)
+library(metagMisc)
+library(vegan)
+library(lemon)
+library(gridExtra)
+library(patchwork)
+library(scales)
+library(microViz)
+library(lme4)
+library(lmerTest)
+library(here)
+library(ggembl)
+```
+
+## All functions that are used for preprocessing
+```{r}
+na_to_y <- function(x, y){
+  x[is.na(x)] <- y
+  x 
+}
+
+rel_abun_conversion <- function(x){
+  x <- x %>% filter(feature != "unannotated") %>% mutate_if(is.numeric, ~./max(.)) %>% filter(feature != "category") ## Should doublecheck if everything has a category feature in the datasets. Note that this is no longer required since transforming krazy output to RPKM values. Please be careful that this is not run anywhere in the scripts anymore, since that would massively mess up the analyses
+}
+
+convert_long_format <- function(x){
+  x <- x %>% pivot_longer(!feature, names_to = "SampleID", values_to = "RPKM")
+}
+
+convert_long_format_taxonomy <- function(x){
+  x <- x %>% rownames_to_column(var = "feature") %>% pivot_longer(!feature, names_to = "SampleID", values_to = "Rel_Abundance")
+}
+
+`%nin%` <- Negate(`%in%`)
+
+convert_long_format_mOTUs <- function(x){
+  x <- x %>% pivot_longer(!rowname, names_to = "SampleID", values_to = "Counts")
+}
+```
+
+## Load profiles for Western / non-Western
+```{r}
+#nonWestern_file_list <- dir_ls("../CAZy_profiles_krazy_2.14.0/Non_Western/")
+nonWestern_file_list <- dir_ls(here("data", "Non_Western"))
+nonWestern_df_list <- map(nonWestern_file_list, read_delim)
+
+nonWestern_df_list <- map(nonWestern_df_list, na_to_y, 0)
+nonWestern_df_list_rel_abun_long <- map(nonWestern_df_list, convert_long_format)
+nonWestern_df_list_rel_abun_long_merged <- bind_rows(nonWestern_df_list_rel_abun_long, .id = "Study_ID")
+nonWestern_df_list_rel_abun_long_merged <- nonWestern_df_list_rel_abun_long_merged %>% filter(feature!= "category" & feature != "filtered_reads" & feature != "total_reads")
+nonWestern_df_list_rel_abun_long_merged$Study_ID <- gsub("_collated.*", "", nonWestern_df_list_rel_abun_long_merged$Study_ID)
+nonWestern_df_list_rel_abun_long_merged$Study_ID <- gsub(".*\\/", "", nonWestern_df_list_rel_abun_long_merged$Study_ID)
+```
+
+## Get metadata for non-Western from CMD and fix accordingly
+```{r}
+cmd_meta <- sampleMetadata
+## Get HMP identifiers
+
+cmd_meta_non_westernized <- cmd_meta %>% filter(body_site == "stool") %>% group_by(study_name) %>% filter(any(non_westernized == "yes"))
+# setdiff(cmd_meta_non_westernized$sample_id, nonWestern_df_list_rel_abun_long_merged$SampleID) ##  It seems for Rampelli some separate matching is required (should use the NCBI_accession column from cmd_meta), as well as for Liu (is called sample_000 in our set, but SRR.... in CMD). For this set some separate info is needed, see below for some cleanup
+
+Liu_2016_meta <- read_delim(here("data", "Metadata", "Liu_2016_sample_info"))
+nonWestern_df_list_rel_abun_long_merged <- left_join(nonWestern_df_list_rel_abun_long_merged, Liu_2016_meta %>% select(run_accession, sample_alias), by = c("SampleID" = "sample_alias")) 
+nonWestern_df_list_rel_abun_long_merged <- nonWestern_df_list_rel_abun_long_merged %>% mutate(run_accession = coalesce(run_accession, SampleID)) %>% select(-SampleID) %>% dplyr::rename("SampleID" = run_accession) ## dplyr::rename(run_accession = "SampleID") ## Maybe this should be dplyr::rename("SampleID" = run_accession)
+
+## Now have to fix the Rampelli dataset, we need the NCBI_accession column from cmd to match with our identifiers
+cmd_meta_non_westernized <- cmd_meta_non_westernized %>% mutate(sample_id = ifelse(study_name == "RampelliS_2015", NCBI_accession, sample_id))
+cmd_meta_non_westernized <- cmd_meta_non_westernized %>% mutate(sample_id = ifelse(study_name == "LokmerA_2019", NCBI_accession, sample_id))
+cmd_meta_non_westernized <- cmd_meta_non_westernized %>% mutate(sample_id = ifelse(study_name == "KaurK_2020", NCBI_accession, sample_id))
+cmd_meta_non_westernized <- cmd_meta_non_westernized %>% mutate(sample_id = ifelse(study_name == "RosaBA_2018", NCBI_accession, sample_id))
+cmd_meta_non_westernized <- cmd_meta_non_westernized %>% mutate(sample_id = ifelse(study_name == "RubelMA_2020", NCBI_accession, sample_id))
+```
+## Load healthy control profiles
+```{r}
+Western_file_list <- dir_ls(here("data", "Healthy_Controls"))
+Western_df_list <- map(Western_file_list, read_delim)
+
+Western_df_list <- map(Western_df_list, na_to_y, 0)
+Western_df_list_rel_abun <- Western_df_list
+Western_df_list_rel_abun_long <- map(Western_df_list_rel_abun, convert_long_format)
+Western_df_list_rel_abun_long_merged <- bind_rows(Western_df_list_rel_abun_long, .id = "Study_ID")
+Western_df_list_rel_abun_long_merged <- Western_df_list_rel_abun_long_merged %>% filter(feature!= "category" & feature != "filtered_reads" & feature != "total_reads")
+Western_df_list_rel_abun_long_merged$Study_ID <- gsub("_collated.*", "", Western_df_list_rel_abun_long_merged$Study_ID)
+Western_df_list_rel_abun_long_merged$Study_ID <- gsub(".*\\/", "", Western_df_list_rel_abun_long_merged$Study_ID)
+```
+
+## Obtain and format correct metadata for control studies
+```{r}
+control_studies <- c("AsnicarF_2021", "HMP_2019_ibdmdb", "HMP_2019_t2d", "LeChatelierE_2013", "SchirmerM_2016", "ZeeviD_2015", "XieH_2016", "YachidaS_2019", "JieZ_2017", "QinJ_2012", "HMP_2012") 
+profiled_controls_metadata <- cmd_meta %>% filter(body_site == "stool") %>% filter(study_name %in% control_studies) %>% filter(disease == "healthy")
+## This is going to be painful, in CMD ERR321066;ERR321065;ERR321064 are basically 1 sample while we have 3 different profiles. This is for leChatelier. For Zeevi, will need a separate mapping file. For Schirmer and both Zeevi files something really weird happened in the profiles, ask Christian about this (this is in the process of being fixed)
+
+## Fix Asnicar metadata
+profiled_controls_metadata_Asnicar <- profiled_controls_metadata %>% filter(study_name == "AsnicarF_2021") ## We don't have profiles for all Asnicar samples, but not sure if that is an issue anyway
+profiled_controls_metadata_Asnicar <- profiled_controls_metadata_Asnicar %>% mutate(sample_id = ifelse(study_name == "AsnicarF_2021", NCBI_accession, sample_id))
+Western_df_list_rel_abun_long_merged %>% filter(Study_ID == "Asnicar_2021") %>%  filter(SampleID %in% profiled_controls_metadata_Asnicar$NCBI_accession) %>% distinct(SampleID) ## At least all Asnicar samples seem to match, apart from 1
+
+## Fix Xie metadata
+Xie_2016_metadata_SRA <- read_delim(here("data", "Metadata", "Xie_2016_SRA_Metadata.txt"))
+profiled_controls_metadata_Xie <- profiled_controls_metadata %>% filter(study_name == "XieH_2016")
+profiled_controls_metadata_Xie <- left_join(profiled_controls_metadata_Xie, Xie_2016_metadata_SRA %>% select(Run, BioSample), by = c("NCBI_accession" = "Run"))
+profiled_controls_metadata_Xie <- profiled_controls_metadata_Xie %>% mutate(sample_id = ifelse(study_name == "XieH_2016", BioSample, sample_id))
+
+## Fix Schirmer metadata 
+
+Schirmer_2016_metadata_SRA <- read_delim(here("data", "Metadata", "Schirmer_2016_SRA_Metadata.txt"))
+## Remove all the single-end files from Schirmer, since these are all likely remnants of KNEADDATA pre-processing and are therefore supersmall files.
+Schirmer_2016_metadata_SRA_single <- Schirmer_2016_metadata_SRA %>% filter(LibraryLayout == "SINGLE")
+Schirmer_2016_metadata_SRA_single_vector <- Schirmer_2016_metadata_SRA_single$Run
+## Filter out all Schirmer Single samples
+Western_df_list_rel_abun_long_merged <- Western_df_list_rel_abun_long_merged %>% filter(SampleID %nin% Schirmer_2016_metadata_SRA_single$Run)
+Schirmer_sample_names <- Western_df_list_rel_abun_long_merged %>% filter(Study_ID == "Schirmer_2016") %>% distinct(SampleID) %>% filter(SampleID != "unannotated")
+profiled_controls_metadata_Schirmer <- profiled_controls_metadata %>% filter(study_name == "SchirmerM_2016")
+
+## Filter out the double accession numbers (so throw out the singles) with the very nice function separate_rows from tidyverse
+profiled_controls_metadata_Schirmer <- profiled_controls_metadata_Schirmer %>% print() %>% separate_rows(NCBI_accession, sep = ";") %>% filter(NCBI_accession %nin% Schirmer_2016_metadata_SRA_single$Run)
+
+test <- setdiff(profiled_controls_metadata_Schirmer$NCBI_accession, unique(Western_df_list_rel_abun_long_merged$SampleID)) ## So all Schirmer samples seem to be properly matched now! Now just have to switch the sample_id and NCBI_accession columns and then can rbind later on to all the other Western control profiles
+profiled_controls_metadata_Schirmer <- profiled_controls_metadata_Schirmer %>% mutate(sample_id = ifelse(study_name == "SchirmerM_2016", NCBI_accession, sample_id))
+
+
+## For Zeevi we only want timepoint 0, since we should avoid time series data
+Zeevi_2015_metadata_SRA <- read_delim(here("data", "Metadata", "Zeevi_2015_SRA_Metadata.txt"))
+Zeevi_2015_mapping_file <- read_delim(here("data", "Metadata", "Zeevi_experiment_list.tsv"))
+Zeevi_2015_mapping_file_timepoint_0 <- Zeevi_2015_mapping_file %>% filter(timepoint == "0")
+Zeevi_2015_metadata_SRA_joined <- left_join(Zeevi_2015_metadata_SRA, Zeevi_2015_mapping_file_timepoint_0 %>% select(1:2), by = c("Run" = "experiment_name")) %>% drop_na(sample_alias) %>% filter(LibraryLayout == "PAIRED")
+## Only keep paired-end sequencing, since the single-end are generally pretty small files
+
+profiled_controls_metadata_Zeevi <- profiled_controls_metadata %>% filter(study_name == "ZeeviD_2015")
+profiled_controls_metadata_Zeevi <- profiled_controls_metadata_Zeevi %>% separate_rows(NCBI_accession, sep = ";") %>% filter(NCBI_accession %in% Zeevi_2015_metadata_SRA_joined$Run) ## There must be some double hits in here of samples that have been sequenced multiple times? This indeed turns out to be the case, so in these cases simply select the file with most bytes (most sequencing data). This can be done in the Zeevi_2015_metadata_SRA_joined object
+Zeevi_2015_metadata_SRA_joined <- Zeevi_2015_metadata_SRA_joined %>% group_by(BioSample) %>% dplyr::slice(which.max(Bytes)) %>% ungroup()
+profiled_controls_metadata_Zeevi <- profiled_controls_metadata_Zeevi %>% filter(NCBI_accession %in% Zeevi_2015_metadata_SRA_joined$Run)
+profiled_controls_metadata_Zeevi <- left_join(profiled_controls_metadata_Zeevi, Zeevi_2015_metadata_SRA_joined %>% select(Run, sample_alias), by = c("NCBI_accession" = "Run"))
+profiled_controls_metadata_Zeevi <- profiled_controls_metadata_Zeevi %>% mutate(sample_id = ifelse(study_name == "ZeeviD_2015", sample_alias, sample_id))
+
+## Now get the controls from the Yachida dataset to have some Japanese representation for geographical representation. Note that the CRC code blocks below need to be run first for this to work.
+Yachida_2019_metadata_SRA <- read_delim(here("data", "Metadata", "Yachida_2019_SRA_Metadata.txt"))
+profiled_controls_metadata_Yachida <- profiled_controls_metadata %>% filter(study_name == "YachidaS_2019")
+profiled_controls_metadata_Yachida <- left_join(profiled_controls_metadata_Yachida, Yachida_2019_metadata_SRA %>% select(Run, BioSample), by = c("sample_id" = "BioSample"))
+profiled_controls_metadata_Yachida <- profiled_controls_metadata_Yachida %>% mutate(sample_id = ifelse(study_name == "YachidaS_2019", Run, sample_id))
+
+## Here fix Qin_2012 metadata
+Qin_2012_metadata_SRA <- read_delim(here("data", "Metadata", "Qin_2012_sample_export_rich.tsv"))
+Qin_2012_metadata_SRA$aliases <- gsub(", SAMN.*", "", Qin_2012_metadata_SRA$aliases)
+Qin_2012_metadata_SRA$aliases <- gsub("SAMN.*, ", "", Qin_2012_metadata_SRA$aliases)
+profiled_controls_metadata_Qin <- profiled_controls_metadata %>% filter(study_name == "QinJ_2012")
+profiled_controls_metadata_Qin <- left_join(profiled_controls_metadata_Qin, Qin_2012_metadata_SRA %>% select(subject_id, aliases), by = c("sample_id" = "aliases"))
+profiled_controls_metadata_Qin <- profiled_controls_metadata_Qin %>% mutate(sample_id = ifelse(study_name == "QinJ_2012", subject_id.y, sample_id)) ## For a few samples metadata is missing, remove those
+profiled_controls_metadata_Qin <- profiled_controls_metadata_Qin %>% drop_na(sample_id)
+
+## Here fix Jie_2017 metadata
+Jie_2017_metadata_SRA <- read_delim(here("data", "Metadata", "Jie_2017_SRA_Metadata.txt"), delim = ",")
+profiled_controls_metadata_Jie <- profiled_controls_metadata %>% filter(study_name == "JieZ_2017")
+profiled_controls_metadata_Jie <- left_join(profiled_controls_metadata_Jie, Jie_2017_metadata_SRA %>% select(Sample_name, BioSample), by = c("sample_id" = "BioSample"))
+profiled_controls_metadata_Jie <- profiled_controls_metadata_Jie %>% mutate(sample_id = ifelse(study_name == "JieZ_2017", Sample_name, sample_id))
+
+## Here fix HMP_2012 (Huttenhower) data, not much fixing needed luckily, but do need to slice away some double samples (multiple samplings from same person). Just take the sample with most reads.
+profiled_controls_metadata_HMP <- profiled_controls_metadata %>% filter(study_name == "HMP_2012") %>% group_by(subject_id) %>% slice_max(number_reads) %>% ungroup()
+
+## rbind now all the control profiles and we have our metadata for all Western and non-Western studies! Also add the colorectal cancer controls, since we have those as well and they give some more geographical distribution.
+
+Western_studies_metadata <- bind_rows(profiled_controls_metadata_Asnicar, profiled_controls_metadata_Schirmer, profiled_controls_metadata_Xie, profiled_controls_metadata_Zeevi, profiled_controls_metadata_Yachida, profiled_controls_metadata_Qin, profiled_controls_metadata_HMP)
+
+#setdiff(Western_studies_metadata$sample_id, Western_df_list_rel_abun_long_merged %>% distinct(SampleID))
+
+## Fix naming in Qin
+Western_df_list_rel_abun_long_merged$SampleID <- gsub("bgi-", "", Western_df_list_rel_abun_long_merged$SampleID)
+
+Western_df_list_rel_abun_long_merged_filtered <- Western_df_list_rel_abun_long_merged %>% filter(SampleID %in% Western_studies_metadata$sample_id)
+Western_studies_metadata_filtered <- Western_studies_metadata %>% filter(sample_id %in% unique(Western_df_list_rel_abun_long_merged_filtered$SampleID))
+```
+
+## Construct phyloseq for Western / non-Western
+```{r}
+complete_western_non_western_rel_abundances <- bind_rows(Western_df_list_rel_abun_long_merged_filtered, nonWestern_df_list_rel_abun_long_merged) 
+complete_western_non_western_metadata <- bind_rows(Western_studies_metadata_filtered, cmd_meta_non_westernized) %>% mutate(non_westernized = dplyr::recode(non_westernized, no = "Westernized", yes = "Non_Westernized"))
+
+complete_western_non_western_rel_abundances_wide <- complete_western_non_western_rel_abundances %>% select(-Study_ID) %>% pivot_wider(names_from = SampleID, values_from = RPKM, values_fill = 0) 
+complete_western_non_western_rel_abundances_wide <- as.data.frame(complete_western_non_western_rel_abundances_wide)
+rownames(complete_western_non_western_rel_abundances_wide) <- complete_western_non_western_rel_abundances_wide$feature
+complete_western_non_western_rel_abundances_wide <- complete_western_non_western_rel_abundances_wide[-1]
+complete_western_non_western_rel_abundances_wide <- as.matrix(complete_western_non_western_rel_abundances_wide)
+class(complete_western_non_western_rel_abundances_wide) <- "numeric"
+OTU <- otu_table(complete_western_non_western_rel_abundances_wide, taxa_are_rows = TRUE)
+
+#saveRDS(complete_western_non_western_rel_abundances_wide, here("data", "Intermediate_Files", "20230929_complete_western_non_western_rel_abundances_wide.RDS"))
+#cmd_meta_non_westernized <- cmd_meta_non_westernized %>% filter(sample_id %in% nonWestern_df_list_rel_abun_long_merged$SampleID)
+## Make an extra column that will serve for making PCoA handy, to discriminate between W/NW samples if both are sampled in the same study
+complete_western_non_western_metadata <- complete_western_non_western_metadata %>% mutate(study_name_W_NW_info = study_name) %>% mutate(study_name_W_NW_info = case_when(
+  study_name_W_NW_info == "LiuW_2016" & non_westernized == "Non_Westernized" ~ "LiuW_2016_NW", 
+  study_name_W_NW_info == "LiuW_2016" & non_westernized == "Westernized" ~ "LiuW_2016_W",
+  study_name_W_NW_info == "Obregon-TitoAJ_2015" & non_westernized == "Non_Westernized" ~ "Obregon-TitoAJ_2015_NW", 
+  study_name_W_NW_info == "Obregon-TitoAJ_2015" & non_westernized == "Westernized" ~ "Obregon-TitoAJ_2015_W",
+  study_name_W_NW_info == "RampelliS_2015" & non_westernized == "Non_Westernized" ~ "RampelliS_2015_NW", 
+  study_name_W_NW_info == "RampelliS_2015" & non_westernized == "Westernized" ~ "RampelliS_2015_W",
+  TRUE ~ study_name_W_NW_info))
+complete_western_non_western_metadata$study_name_W_NW_info <- as.factor(complete_western_non_western_metadata$study_name_W_NW_info)
+## Order first all the NW, then the W studies
+complete_western_non_western_metadata$study_name_W_NW_info <- factor(complete_western_non_western_metadata$study_name_W_NW_info, levels = c("BritoIL_2016", "KaurK_2020", "LiuW_2016_NW", "LokmerA_2019","Obregon-TitoAJ_2015_NW","PasolliE_2019","PehrssonE_2016","RampelliS_2015_NW","RosaBA_2018","RubelMA_2020","SmitsSA_2017","TettAJ_2019_a","TettAJ_2019_b","TettAJ_2019_c", "AsnicarF_2021", "HMP_2012", "LiuW_2016_W", "Obregon-TitoAJ_2015_W", "QinJ_2012", "RampelliS_2015_W", "SchirmerM_2016", "XieH_2016", "YachidaS_2019", "ZeeviD_2015"))
+
+count_samples_study_W_NW <- complete_western_non_western_metadata %>% dplyr::count(study_name_W_NW_info)
+complete_western_non_western_metadata <- left_join(complete_western_non_western_metadata, count_samples_study_W_NW, by = c("study_name_W_NW_info" = "study_name_W_NW_info"))
+complete_western_non_western_metadata$ntest <- paste("(n=", "", complete_western_non_western_metadata$n)
+complete_western_non_western_metadata$ntest <- paste(complete_western_non_western_metadata$ntest, "", ")")
+complete_western_non_western_metadata$ntest <- gsub(" ", "", complete_western_non_western_metadata$ntest)
+complete_western_non_western_metadata$study_name_W_NW_info_n <- paste(complete_western_non_western_metadata$study_name_W_NW_info, complete_western_non_western_metadata$ntest)
+
+complete_western_non_western_metadata$study_name_W_NW_info_n <- factor(complete_western_non_western_metadata$study_name_W_NW_info_n, levels = c("BritoIL_2016 (n=172)", "KaurK_2020 (n=31)", "LiuW_2016_NW (n=65)", "LokmerA_2019 (n=57)","Obregon-TitoAJ_2015_NW (n=36)","PasolliE_2019 (n=112)","PehrssonE_2016 (n=191)","RampelliS_2015_NW (n=27)","RosaBA_2018 (n=24)","RubelMA_2020 (n=175)","SmitsSA_2017 (n=40)","TettAJ_2019_a (n=68)","TettAJ_2019_b (n=44)","TettAJ_2019_c (n=50)", "AsnicarF_2021 (n=1098)", "HMP_2012 (n=95)", "LiuW_2016_W (n=45)", "Obregon-TitoAJ_2015_W (n=22)", "QinJ_2012 (n=174)", "RampelliS_2015_W (n=11)", "SchirmerM_2016 (n=471)", "XieH_2016 (n=169)", "YachidaS_2019 (n=246)", "ZeeviD_2015 (n=858)"))
+
+count_samples_study <- complete_western_non_western_metadata %>% dplyr::count(study_name) %>% dplyr::rename("n_total" = n)
+complete_western_non_western_metadata <- left_join(complete_western_non_western_metadata, count_samples_study, by = c("study_name" = "study_name"))
+complete_western_non_western_metadata$ntest2 <- paste("(n=", "", complete_western_non_western_metadata$n_total)
+complete_western_non_western_metadata$ntest2 <- paste(complete_western_non_western_metadata$ntest2, "", ")")
+complete_western_non_western_metadata$ntest2 <- gsub(" ", "", complete_western_non_western_metadata$ntest2)
+complete_western_non_western_metadata$study_name_info_n <- paste(complete_western_non_western_metadata$study_name, complete_western_non_western_metadata$ntest2)
+
+cmd_meta_non_westernized_ps <- as.data.frame(complete_western_non_western_metadata)
+rownames(cmd_meta_non_westernized_ps) <- cmd_meta_non_westernized_ps$sample_id
+sampledata <- phyloseq::sample_data(cmd_meta_non_westernized_ps)
+
+westernized_non_westernized_ps <- phyloseq(OTU, sampledata)
+
+## Here extract abundances of only the samples we'll continue with in the analyses
+complete_western_non_western_rel_abundances_wide_filtered_samples <- microbiome::abundances(westernized_non_westernized_ps)
+saveRDS(complete_western_non_western_rel_abundances_wide_filtered_samples, here("data", "Intermediate_Files", "20230929_complete_western_non_western_rel_abundances_wide.rds"))
+
+## For manuscript, headers with keypoint and figure drafts.
+```
+
+## Load and clean CRC data
+```{r}
+CRC_file_list <- dir_ls(here("data", "CRC", "CRC_CAZy_profiles"))
+CRC_df_list <- map(CRC_file_list, read_delim)
+
+CRC_df_list <- map(CRC_df_list, na_to_y, 0)
+CRC_df_list_rel_abun <- CRC_df_list
+
+CRC_df_list_rel_abun_long <- map(CRC_df_list_rel_abun, convert_long_format)
+CRC_df_list_rel_abun_long_merged <- bind_rows(CRC_df_list_rel_abun_long, .id = "Study_ID")
+CRC_df_list_rel_abun_long_merged$Study_ID <- gsub("_collated.*", "", CRC_df_list_rel_abun_long_merged$Study_ID)
+CRC_df_list_rel_abun_long_merged$Study_ID <- gsub(".*\\/", "", CRC_df_list_rel_abun_long_merged$Study_ID)
+
+# write_tsv(CRC_df_rel_abun_wide, "CRC_df_rel_abun_wide.tsv")
+```
+## Prepare metadata for CRC sets properly
+```{r}
+meta_CRC <- read_delim(here("data", "Metadata", "20230203_All.wgs.meta.data.updated.txt"))
+meta_CRC <- meta_CRC %>% rename(Sample_ID = "SampleID")
+meta_CRC <- as.data.frame(meta_CRC)
+rownames(meta_CRC) <- meta_CRC$SampleID
+
+IT_sample_map <- read_delim(here("data", "CRC", "Mapping_Data", "IT_sample_map.tsv")) ## Need to exchange the Library name in the CAZy profiles for the Run from this data.
+IT_sample_map <- IT_sample_map %>% select(Library_Name, Run)
+
+CRC_df_list_rel_abun_long_merged <- left_join(CRC_df_list_rel_abun_long_merged, IT_sample_map, by = c("SampleID" = "Library_Name")) 
+CRC_df_list_rel_abun_long_merged <- CRC_df_list_rel_abun_long_merged %>% mutate(Run = coalesce(Run, SampleID)) %>% select(-SampleID) %>% rename(Run = "SampleID")
+
+unique_samples <- unique(CRC_df_list_rel_abun_long_merged$SampleID)
+setdiff(meta_CRC$SampleID, unique_samples)
+samples_to_be_excluded_Selin <- setdiff(unique_samples, meta_CRC$SampleID)
+`%nin%` = Negate(`%in%`)
+CRC_df_list_rel_abun_long_merged <- CRC_df_list_rel_abun_long_merged %>% filter(SampleID %nin% samples_to_be_excluded_Selin)
+```
+
+## Construct phyloseq for CRC
+```{r}
+CRC_df_rel_abun_wide <- CRC_df_list_rel_abun_long_merged %>% select(-Study_ID) %>% pivot_wider(names_from = SampleID, values_from = RPKM, values_fill = 0) %>% filter(feature!= "category" & feature != "filtered_reads" & feature != "total_reads") ## Since we have RPKM values, no need to normalize anymore based on this category feature.
+
+CRC_df_rel_abun_wide <- as.data.frame(CRC_df_rel_abun_wide)
+rownames(CRC_df_rel_abun_wide) <- CRC_df_rel_abun_wide$feature
+CRC_df_rel_abun_wide <- CRC_df_rel_abun_wide[-1]
+CRC_df_rel_abun_wide <- as.matrix(CRC_df_rel_abun_wide)
+class(CRC_df_rel_abun_wide) <- "numeric"
+OTU_CRC <- otu_table(CRC_df_rel_abun_wide, taxa_are_rows = TRUE)
+
+rownames(meta_CRC) <- meta_CRC$SampleID
+meta_CRC$Study <- as.factor(meta_CRC$Study)
+sampledata_CRC <- phyloseq::sample_data(meta_CRC)
+
+CRC_ps <- phyloseq(OTU_CRC, sampledata_CRC) ## Subsample only the CRC and CTR
+CRC_ps <- subset_samples(CRC_ps, Group == "CRC" | Group == "CTR")
+CRC_ps <- CRC_ps %>% ps_filter(SampleID != "SRR14610603" & SampleID != "MG100135" & SampleID != "MG100142")
+```
+
+## Load  mOTUs profiles for CRC
+```{r}
+ref_motus_mapping <- read_delim("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/Tom_Clavel_Bile_Acids/Data/db_mOTU_taxonomy_meta-mOTUs.tsv", col_names = TRUE) 
+meta_motus_mapping <- read_delim("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/Tom_Clavel_Bile_Acids/Data/db_mOTU_taxonomy_ref-mOTUs.tsv", col_names = TRUE)
+meta_motus_mapping <- meta_motus_mapping %>% select(-1) %>% dplyr::rename("motus_identifier" = 1)
+ref_motus_mapping <- ref_motus_mapping %>% dplyr::rename("motus_identifier" = 1)
+new_motus <- read_delim("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/Tom_Clavel_Bile_Acids/Data/new_mOTUs.txt", col_names = FALSE) 
+colnames(new_motus) <- colnames(ref_motus_mapping)
+motus_mapping <- full_join(ref_motus_mapping, meta_motus_mapping)
+motus_mapping <- full_join(motus_mapping, new_motus)
+motus_mapping$mOTU <- gsub("NA ", "", motus_mapping$mOTU)
+motus_mapping$mOTU <- gsub("^[0-9].*? ", "", motus_mapping$mOTU)
+
+tax_abundances_crc <- attach("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/Tom_Clavel_Bile_Acids/Data/20230808_Shotgun.data.preparation.Rdata")
+
+tax_abundances_crc_motus <- tax_abundances_crc$data_wgs_motus_without_AD ## The -1 category is called not_resolved here
+mOTU_names <- rownames(tax_abundances_crc_motus) 
+tax_abundances_crc_motus <- as.matrix(tax_abundances_crc_motus)
+tax_abundances_crc_otu_table <- otu_table(tax_abundances_crc_motus, taxa_are_rows = TRUE)
+motus_mapping_tax_table <- motus_mapping %>% column_to_rownames(var = "motus_identifier") %>% as.matrix()
+motus_mapping_tax_table <- tax_table(motus_mapping_tax_table)
+
+CRC_taxonomy_ps <- phyloseq(tax_abundances_crc_otu_table, motus_mapping_tax_table, sampledata_CRC) 
+CRC_taxonomy_ps <- CRC_taxonomy_ps %>% ps_filter(SampleID != "SRR14610603" & SampleID != "MG100142")
+```
+
+## Load genome-based data with phylum prevalence / abundance
+```{r}
+prev_abun_Almeida_genomes <- read_tsv(here("data", "Metadata", "cazy_phylum_abundances.tsv"))
+phyla_to_display <- c("Proteobacteria", "Firmicutes", "Actinobacteria", "Spirochaetes", "Fusobacteria", "Verrucomicrobia", "Bacteroidetes")
+prev_abun_Almeida_genomes_filtered <- prev_abun_Almeida_genomes %>% filter(phylum %in% phyla_to_display)
+```
+
+## Load substrate annotations
+```{r}
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
+glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
+
+glycan_annotations_final_cleaned_long <- glycan_annotations_final_cleaned %>% separate_rows(ORIGIN,sep=",") %>% separate_rows(FUNCTION_IN_ORIGIN,sep=",") %>% separate_rows(FUNCTION_AT_DESTINATION_1,sep=",") %>% separate_rows(FUNCTION_AT_DESTINATION_2,sep=",") %>% separate_rows(FUNCTION_AT_DESTINATION_3,sep=",")
+
+glycan_annotations_cleaned <- glycan_annotations_final_cleaned
+
+## As preparation for the GSEA analyses
+glycan_annotations_final_cleaned_long_GSEA <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_1,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_1 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_1) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_1) ## Unknown is removed as this is a non-informative substrate level.
+glycan_annotations_final_cleaned_long_GSEA$FUNCTION_AT_DESTINATION_1 <- as.factor(glycan_annotations_final_cleaned_long_GSEA$FUNCTION_AT_DESTINATION_1)
+glycan_annotations_final_cleaned_long_GSEA$Subfamily <- gsub("([A-Z])_","\\1",glycan_annotations_final_cleaned_long_GSEA$Subfamily)
+
+pathways_FAD_1 <- list()
+
+for (group in levels(glycan_annotations_final_cleaned_long_GSEA$FUNCTION_AT_DESTINATION_1)){
+  print(group)
+  tmp_df <- glycan_annotations_final_cleaned_long_GSEA %>% dplyr::filter(FUNCTION_AT_DESTINATION_1==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_1[group] <- group
+  pathways_FAD_1[[length(pathways_FAD_1)]] <- cazymes
+}
+
+```
+
+
+## Combine tax and CAZy profiles
+```{r}
+## First have to filter both abundance matrices so we can have exactly the same input features in the ML workflow, so there can be no discrepancies because of this reason.
+
+#saveRDS(CRC_ps, "CRC_ps.RDS")
+#saveRDS(CRC_taxonomy_ps, "CRC_taxonomy_ps.RDS")
+CRC_ps <- readRDS("CRC_ps.RDS")
+CRC_taxonomy_ps <- readRDS("CRC_taxonomy_ps.RDS")
+cazy_abundance_crc <- microbiome::abundances(CRC_ps)
+tax_abundance_crc <- microbiome::abundances(CRC_taxonomy_ps)
+
+CRC_df_rel_abun_wide_prev_1 <- cazy_abundance_crc[rowSums(cazy_abundance_crc > 0) >= (0.01 * ncol(cazy_abundance_crc)), ]
+CRC_df_rel_abun_wide_prev_1 <- CRC_df_rel_abun_wide_prev_1 + 0.01
+tax_abundances_crc_motus_prev_5 <- tax_abundance_crc[rowSums(tax_abundance_crc > 0) >= (0.05 * ncol(tax_abundance_crc)), ]
+tax_abundances_crc_motus_prev_5 <- tax_abundances_crc_motus_prev_5 + 1e-4
+
+CRC_df_rel_abun_wide_prev_1 <- CRC_df_rel_abun_wide_prev_1[, match(colnames(tax_abundances_crc_motus_prev_5), colnames(CRC_df_rel_abun_wide_prev_1))]
+combined_cazy_tax_crc_abundances <- rbind(CRC_df_rel_abun_wide_prev_1, tax_abundances_crc_motus_prev_5)
+
+## In case we want to manually perform the normalization procedures that are otherwise performed within SIAMCAT
+combined_cazy_tax_crc_abundances <- t(log10(combined_cazy_tax_crc_abundances)) ## Transformations are needed because of the fact that scale() works on columns
+combined_cazy_tax_crc_abundances <- scale(combined_cazy_tax_crc_abundances)
+combined_cazy_tax_crc_abundances <- t(combined_cazy_tax_crc_abundances)
+
+motus_included <- rownames(tax_abundances_crc_motus_prev_5)
+cazy_included <- rownames(CRC_df_rel_abun_wide_prev_1)
+
+combined_abundances_otu_table <- otu_table(combined_cazy_tax_crc_abundances, taxa_are_rows = TRUE)
+combined_abundances_crc_ps <- phyloseq(combined_abundances_otu_table, sampledata_CRC)
+
+crc_ps_tax_prediction <- prune_taxa(taxa_names(combined_abundances_crc_ps) %in% motus_included, combined_abundances_crc_ps)
+crc_ps_cazy_prediction <- prune_taxa(taxa_names(combined_abundances_crc_ps) %in% cazy_included, combined_abundances_crc_ps)
+```

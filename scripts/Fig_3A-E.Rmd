@@ -1,0 +1,283 @@
+---
+title: "Fig_3A-E"
+author: "QD"
+date: "2023-12-04"
+output: html_document
+---
+
+## Fig 3A 
+```{r}
+metadata_perm <- meta(westernized_non_westernized_ps)
+canberra_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "canberra")
+betadisper_test <- betadisper(canberra_matrix, metadata_perm$non_westernized)
+permutest(betadisper_test) ##Means we reject that groups have same dispersions
+set.seed(1000) ## To ensure reproducible results
+adonis_result_canberra <- adonis2(canberra_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
+
+## P-value 0.001 and R2 = 0.0731
+pcoa_canberra <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'canberra')
+mycolors <- c("#FED470", "#FEC561", "#FEB651", "#FDA848", "#FD9A41", "#FD8D3C", "#FC7535", "#FC5D2E", "#F84728", "#EF3322", "#E6201D", "#D6131E", "#C30922", "#B10026", "#A3CCE3", "#88BEDC", "#6BAED6", "#539ECC", "#3D8DC3", "#2A7AB9", "#1967AD", "#0B559F", "#084287", "#08306B")
+
+Fig3A <- plot_ordination(westernized_non_westernized_ps, pcoa_canberra, color="study_name_W_NW_info_n", title='PCoA (Canberra)') + theme_classic() + geom_point(size=2, alpha = 0.05) + labs(color="Study") + scale_color_manual(values=mycolors) + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + xlab("PC1 [12.6%]") + ylab("PC2 [10.1%]") + annotate("text", x = 0, y = -0.33, label = "P-value = 0.001") + annotate("text", x = 0, y = -0.35, label = "paste(italic(R) ^ 2, \" = 0.073\")", parse = TRUE) #+ theme(legend.position = "none")
+
+
+```
+
+## Extended Data Fig 2
+```{r}
+## Bray-Curtis
+metadata_perm <- meta(westernized_non_westernized_ps)
+bray_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "bray")
+betadisper_test <- betadisper(bray_matrix, metadata_perm$non_westernized)
+permutest(betadisper_test) ##Means we reject that groups have same dispersions
+set.seed(1000) ## To ensure reproducible results
+adonis_result_bray <- adonis2(bray_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
+## Results are R2 = 0.092 and p 0.001
+
+pcoa_info <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'bray')
+pcoa_plot_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_info, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [38.6%]") + ylab("PC2 [15.3%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+
+## Manhattan
+manhattan_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "manhattan")
+betadisper_test <- betadisper(manhattan_matrix, metadata_perm$non_westernized)
+permutest(betadisper_test) ##Means we cannot reject that the groups have the same dispersions, so this gives us higher confidence that adonis rseults are real
+set.seed(1000) ## To ensure reproducible results
+adonis_result_manhattan <- adonis2(manhattan_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
+
+## P-value 0.001 and R2 = 0.08946
+westernized_non_westernized_ps_log10 <- microbiome::transform(westernized_non_westernized_ps, "log10") ## Rel abundances
+pcoa_manhattan <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'manhattan')
+pcoa_plot_manhattan_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_manhattan, color="study_name_W_NW_info", title='PCoA (Manhattan)') + theme_classic() + geom_point(size=2, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+
+
+```
+
+## Fig 3B and Extended Data Fig 3
+```{r}
+W_NW_rel_abun_long <- psmelt(westernized_non_westernized_ps)
+CAZyme_count <- W_NW_rel_abun_long %>% filter(Abundance > 1) %>% group_by(Sample) %>% summarise(across(Abundance, ~sum(.x != 0))) %>% rename(Abundance = "Unique_CAZyme_count") ## Note that here it is absolutely crucial to filter on Abundance 1 to get the RPKM filter in there for prevalence estimation. For initial exploration of e.g. read count correlations it isn't really necessary, but for the final figures definitely so.
+CAZyme_count_df <- left_join(CAZyme_count, sampledata, by = c("Sample" = "sample_id"))
+
+write_tsv(CAZyme_count_df, here("data", "Intermediate_Files", "20230929_CAZyme_count_df.tsv"))
+
+Fig3B <- ggplot(CAZyme_count_df) +
+  theme_publication() +
+  aes(x = non_westernized, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_text(size=11, angle = 45, hjust = 1, vjust = 1)) +
+  xlab("") +
+  ylab("Number of unique CAZymes") + 
+  theme(axis.text.x = element_blank())
+
+median_order <- CAZyme_count_df %>% group_by(study_name_info_n) %>% summarise(Median = median(Unique_CAZyme_count)) %>% arrange(-Median)
+
+Extended_Data_Fig3 <- ggplot(CAZyme_count_df %>% mutate(study_name_info_n = as.factor(study_name_info_n)) %>% mutate(study_name_info_n = fct_relevel(study_name_info_n, median_order$study_name_info_n))) +
+  #theme_classic() +
+  theme_publication() +
+  aes(x = study_name_info_n, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot() +
+  #stat_compare_means(aes(label = paste0("p =", ..p.format..)), method = "wilcox.test") +
+  #stat_compare_means(aes(group = non_westernized), label = "p.signif", label.x = 1.5, method = "wilcox.test") +
+  stat_compare_means(aes(group = non_westernized), bracket.size = 0.5, label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1)) +
+  xlab("") +
+  ylab("Number of Unique CAZymes")
+```
+
+## Fig 3C+D
+```{r}
+substrate_annotation_cazymes <- as.data.frame(do.call(cbind, pathways_FAD_1)) ## Note that this automatically fills missing values with duplicates, so just have to filter out the duplicates and all should be good
+substrate_annotation_cazymes_long <- substrate_annotation_cazymes %>% pivot_longer(cols = everything(), names_to = "Substrate", values_to = "CAZyme") %>% distinct() 
+substrate_annotation_cazymes_long$Substrate <- as.factor(substrate_annotation_cazymes_long$Substrate)
+
+RPKM_per_substrate <- as.data.frame(matrix(ncol = 3, nrow = 0), c("sample_id", "RPKM_sum", "Substrate"))
+
+for (group in levels(substrate_annotation_cazymes_long$Substrate)){
+  print(group)
+  substrate_annotation_tmp <- substrate_annotation_cazymes_long %>% filter(Substrate == group)
+  tmp_df <- W_NW_rel_abun_long %>% dplyr::filter(OTU %in% substrate_annotation_tmp$CAZyme)
+  tmp_df <- tmp_df %>% group_by(sample_id) %>% summarise(RPKM_sum = sum(Abundance)) %>% ungroup() %>% add_column(Substrate = group)
+  RPKM_per_substrate <- RPKM_per_substrate %>% rbind(tmp_df)
+}
+
+RPKM_per_substrate_W_NW <- left_join(RPKM_per_substrate, complete_western_non_western_metadata %>% select(sample_id, non_westernized, study_name, study_name_info_n), by = "sample_id")
+RPKM_per_substrate_W_NW$RPKM_sum <- RPKM_per_substrate_W_NW$RPKM_sum + 0.01
+
+RPKM_per_substrate_W_NW_substrate_ratios <- RPKM_per_substrate_W_NW %>% pivot_wider(names_from = Substrate, values_from = RPKM_sum) %>% mutate(Mucin_to_DF = Mucin / DF) %>% mutate(GAG_to_DF = GAG / DF)
+
+Fig_3C <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
+  theme_classic() +
+  aes(x = non_westernized, y = Mucin_to_DF, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_blank()) +
+  xlab("") +
+  ylab("Mucin to DF ratio")
+
+Fig_3D <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
+  theme_classic() +
+  aes(x = non_westernized, y = GAG_to_DF, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_blank()) +
+  xlab("") +
+  ylab("GAG to DF ratio")
+
+```
+
+## Fig 3E
+```{r}
+label_NW <- create.label(meta = sample_data(westernized_non_westernized_ps), label = "non_westernized", case = "Non_Westernized")
+siamcat_NW_rel_abun <- siamcat(phyloseq = westernized_non_westernized_ps, label = label_NW)
+show(siamcat_NW_rel_abun)
+
+siamcat_NW_rel_abun <- filter.features(siamcat_NW_rel_abun, filter.method = "prevalence" ,cutoff = 0.01)
+siamcat_NW_rel_abun <- normalize.features(siamcat_NW_rel_abun, norm.method = "log.std", norm.param = list(log.n0 = 0.01, sd.min.q = 0.0)) 
+siamcat_NW_rel_abun <- check.associations(siamcat_NW_rel_abun, test = "lm", feature.type = "normalized")
+
+## The below code is required for the GSEA
+siamcat_NW_results_associations <- siamcat_NW_rel_abun@associations$assoc.results
+siamcat_NW_results_associations$cazyme_fam <- rownames(siamcat_NW_results_associations)
+
+write_csv(siamcat_NW_results_associations, here("data", "Intermediate_Files", "siamcat_NW_results_associations.csv"))
+
+top_15_pos <- siamcat_NW_results_associations %>% top_n(15,fc) 
+top_15_neg <- siamcat_NW_results_associations %>% top_n(-15,fc)
+top_15_each_direction <- bind_rows(top_15_pos, top_15_neg) %>% arrange(fc)
+
+## Now plot SIAMCAT results
+top_15_each_direction_W_NW <- top_15_each_direction %>% mutate(Category=case_when(fc > 0 ~ "Non-Westernized", fc < 0 ~ "Westernized"))
+
+Fig3E_1 <- ggplot(top_15_each_direction_W_NW %>% mutate(cazyme_fam=factor(cazyme_fam, levels = rev(top_15_each_direction$cazyme_fam))))+
+  aes(x = fc, y = cazyme_fam, fill = Category) +
+  geom_bar(stat="identity", colour = "black") +
+  theme_classic() +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  xlab("Generalized fold change") +
+  ylab("") +
+  theme(axis.ticks = element_blank()) +
+  theme(legend.position = "none")
+
+## Part 2 of panel E
+W_NW_rel_abun_long_filtered <- W_NW_rel_abun_long %>% filter(OTU %in% siamcat_NW_results_associations$cazyme_fam)
+#rm(W_NW_rel_abun_long)
+prevalence_per_cazyme <- W_NW_rel_abun_long_filtered %>% filter(Abundance > 1) %>% group_by(OTU, non_westernized) %>% summarise_at(vars(Abundance), ~sum(. != 0)) %>% pivot_wider(names_from = non_westernized, values_from = Abundance) %>% mutate(non_westernized_prevalence = Non_Westernized / (complete_western_non_western_metadata %>% filter(non_westernized == "Non_Westernized") %>% nrow())) %>% mutate(westernized_prevalence = Westernized / (complete_western_non_western_metadata %>% filter(non_westernized == "Westernized") %>% nrow()))
+
+prevalence_per_cazyme_long <- prevalence_per_cazyme %>% select(OTU, non_westernized_prevalence, westernized_prevalence) %>% pivot_longer(!OTU, names_to = "Westernization_status", values_to = "prevalence") %>% mutate(prevalence = prevalence * 100)
+prevalence_per_cazyme_long$Westernization_status <- gsub("_prevalence", "", prevalence_per_cazyme_long$Westernization_status)
+prevalence_per_cazyme_long_filtered <- prevalence_per_cazyme_long %>% filter(OTU %in% top_15_each_direction$cazyme_fam)
+prevalence_per_cazyme_long_filtered <- prevalence_per_cazyme_long_filtered%>% mutate(Westernization_status=factor(Westernization_status, levels = Westernization_status))
+
+Fig3E_2 <- ggplot(prevalence_per_cazyme_long_filtered %>% mutate(OTU=factor(OTU, levels = rev(top_15_each_direction$cazyme_fam)))) +
+  theme_classic() +
+  aes(x = OTU, y = prevalence, fill = fct_rev(Westernization_status)) +
+  geom_bar(stat = "identity", position = "dodge", colour = "black", width = 0.75) +
+  scale_fill_manual(values=c('#3B6FB6','#D41645')) +
+  #scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  coord_flip() +
+  xlab("") +
+  ylab("CAZyme family\nprevalence [%]") +
+  theme(axis.text.y = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(legend.position = "none")
+
+## Part 3 of panel E
+Fig3E_3 <- ggplot(prev_abun_Almeida_genomes_filtered %>% filter(cazy_family %in% top_15_each_direction$cazyme_fam) %>% mutate(cazy_family=factor(cazy_family, levels = rev(top_15_each_direction$cazyme_fam)))) +
+  aes(x = phylum, y = cazy_family, fill = prevalence) +
+  theme_classic() +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "black") +
+  xlab("") +
+  ylab("") +
+  labs(fill="Microbial\nprevalence") +
+  theme(axis.text.y = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+## Extended Data Figs 4 and 5
+```{r}
+## Load the alignment rates table, first aligned reads versus raw reads
+alignment_rates_raw <- read_delim(here("data", "Alignments_Raw_Counts", "GMGC_alignment_rates_total.tab"), col_names = FALSE)
+alignment_rates_raw <- alignment_rates_raw %>% dplyr::rename("Study" = X1, "sample" = X2, "n_reads" = X3, "n_clean" = X4, "pri_aln" = X5)
+## Need to fix Qin and Liu_2016 datasets
+alignment_rates_raw$sample <- gsub("bgi-","",alignment_rates_raw$sample)
+alignment_rates_raw <- left_join(alignment_rates_raw, Liu_2016_meta %>% select(run_accession, sample_alias), by = c("sample" = "sample_alias")) 
+alignment_rates_raw <- alignment_rates_raw %>% mutate(sample = coalesce(run_accession, sample)) %>% select(-run_accession) %>% filter(sample != "sample")
+
+alignment_rates_raw_W_NW <- alignment_rates_raw %>% filter(sample %in% cmd_meta_non_westernized_ps$sample_id) ## Integrate this line with the previous line
+alignment_rates_raw_W_NW <- alignment_rates_raw_W_NW %>% mutate_at(c("n_reads", "n_clean","pri_aln"), as.numeric)
+alignment_rates_raw_W_NW <- alignment_rates_raw_W_NW %>% mutate(alignment_rate = pri_aln / n_clean)
+alignment_rates_raw_W_NW <- left_join(alignment_rates_raw_W_NW, complete_western_non_western_metadata, by = c("sample" = "sample_id")) 
+
+##Extended Data Fig 4
+Extended_Data_Fig_4 <- ggplot(alignment_rates_raw_W_NW %>% mutate(non_westernized = as.factor(non_westernized)) %>% mutate(non_westernized = recode(non_westernized, Non_Westernized = "NW", Westernized = "W"))) +
+  #theme_classic() +
+  theme_publication() +
+  aes(x = non_westernized, y = alignment_rate, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  stat_compare_means(aes(label = paste0("p =", ..p.format..)), method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  xlab("") +
+  ylab("Alignment rate")
+
+##Extended Data Fig 5
+alignment_rates_raw_W_NW_925_higher <- alignment_rates_raw_W_NW %>% filter(alignment_rate >= 0.925) %>% filter(alignment_rate < 0.975)
+alignment_rates_raw_W_NW_925 <- left_join(alignment_rates_raw_W_NW_925_higher, CAZyme_count_df %>% select(Sample, Unique_CAZyme_count), by = c("sample" = "Sample"))
+
+CAZyme_count_df_925 <- CAZyme_count_df %>% filter(Sample %in% alignment_rates_raw_W_NW_925_higher$sample)
+## Have to recompute sample numbers / study for these high alignment rates as inclusion / exclusion criterium.
+
+CAZyme_count_df_925_study <- CAZyme_count_df_925 %>% dplyr::count(study_name_W_NW_info) %>% rename(n = "n_align")
+CAZyme_count_df_925 <- left_join(CAZyme_count_df_925, CAZyme_count_df_925_study, by = c("study_name_W_NW_info" = "study_name_W_NW_info"))
+CAZyme_count_df_925$n_aligntest <- paste("(n=", "", CAZyme_count_df_925$n_align)
+CAZyme_count_df_925$n_aligntest <- paste(CAZyme_count_df_925$n_aligntest, "", ")")
+CAZyme_count_df_925$n_aligntest <- gsub(" ", "", CAZyme_count_df_925$n_aligntest)
+CAZyme_count_df_925$study_name_W_NW_info_n_align <- paste(CAZyme_count_df_925$study_name_W_NW_info, CAZyme_count_df_925$n_aligntest)
+
+Extended_Data_Fig_5_1 <- ggplot(CAZyme_count_df_925 %>% mutate(non_westernized = as.factor(non_westernized)) %>% mutate(non_westernized = recode(non_westernized, Non_Westernized = "NW (n=415)", Westernized = "W (n=1,080"))) +
+  theme_publication() +
+  aes(x = non_westernized, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot() +
+  stat_compare_means(method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645', '#3B6FB6')) +
+  xlab("") +
+  ylab("Number of unique CAZymes (samples with alignment rate 92.5 - 97.5%)")  +
+  theme(legend.position="none")
+
+median_order <- CAZyme_count_df_925 %>% group_by(study_name_W_NW_info_n_align) %>% summarise(Median = median(Unique_CAZyme_count)) %>% arrange(-Median)
+
+Extended_Data_Fig_5_2 <- ggplot(CAZyme_count_df_925 %>% mutate(study_name_W_NW_info_n_align = as.factor(study_name_W_NW_info_n_align)) %>% mutate(study_name_W_NW_info_n_align = fct_relevel(study_name_W_NW_info_n_align, median_order$study_name_W_NW_info_n_align))) +
+  theme_publication() +
+  aes(x = study_name_W_NW_info_n_align, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot() +
+  scale_fill_manual(values=c('#D41645', '#3B6FB6')) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1)) +
+  ylab("") +
+  xlab("")
+
+```
+## Fig 3F
+```{r}
+label.crc_taxonomy <- create.label(meta=sample_data(CRC_taxonomy_ps),label='Group', case='CRC')
+siamcat_crc_taxonomy <- siamcat(phyloseq=CRC_taxonomy_ps, label=label.crc_taxonomy)
+show(siamcat_crc_taxonomy)
+siamcat_crc_taxonomy <- filter.features(siamcat_crc_taxonomy,filter.method = 'prevalence',cutoff = 0.05) ## Prevalence (non-zero value) at 5%
+siamcat_crc_taxonomy <- normalize.features(siamcat_crc_taxonomy, norm.method = "log.std", norm.param = list(log.n0 = 1e-4, sd.min.q = 0.0)) 
+
+crc_taxonomy_meta_random_effect_study <- check.associations(siamcat_crc_taxonomy, formula = "feat ~ label + (1|Study)", test = "lm", feature.type = "normalized") ## Cannot run without the LMM without random effect???
+
+# combine all associations
+df.assoc_taxonomy <- crc_taxonomy_meta_random_effect_study@associations$assoc.results
+df.assoc_taxonomy$mOTU_nr <- rownames(df.assoc_taxonomy)
+
+df.assoc_taxonomy <- df.assoc_taxonomy %>% left_join(as.data.frame(motus_mapping_tax_table) %>% rownames_to_column("mOTU_nr"), by = "mOTU_nr")
+
+write_csv(df.assoc_taxonomy, here("data", "Intermediate_Files", "taxonomy_siamcat_CRC.csv"))
+```
+

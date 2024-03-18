@@ -5,6 +5,15 @@ date: "2023-12-04"
 output: html_document
 ---
 
+## Load required libraries
+```{r}
+library(SIAMCAT)
+library(vegan)
+library(lmerTest)
+library(ggembl)
+```
+
+
 ## Fig 3A 
 ```{r}
 metadata_perm <- meta(westernized_non_westernized_ps)

@@ -8,6 +8,8 @@ output: html_document
 ```{r}
 library(SIAMCAT)
 library(aplot)
+library(lmerTest)
+library(ggembl)
 ```
 
 

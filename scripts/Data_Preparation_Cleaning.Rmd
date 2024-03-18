@@ -9,28 +9,11 @@ output: html_document
 ```{r}
 library(tidyverse)
 library(curatedMetagenomicData)
-library(fs)
-library(phyloseq)
-library(SIAMCAT)
 library(microbiome)
 library(readxl)
-library(aplot)
-library(writexl)
-library(ggpubr)
-library(RColorBrewer)
-library(cowplot)
-library(ggplotify)
-library(metagMisc)
-library(vegan)
-library(lemon)
-library(gridExtra)
-library(patchwork)
-library(scales)
 library(microViz)
-library(lme4)
-library(lmerTest)
 library(here)
-library(ggembl)
+library(fs)
 ```
 
 ## All functions that are used for preprocessing
@@ -38,10 +21,6 @@ library(ggembl)
 na_to_y <- function(x, y){
   x[is.na(x)] <- y
   x 
-}
-
-rel_abun_conversion <- function(x){
-  x <- x %>% filter(feature != "unannotated") %>% mutate_if(is.numeric, ~./max(.)) %>% filter(feature != "category") ## Should doublecheck if everything has a category feature in the datasets. Note that this is no longer required since transforming krazy output to RPKM values. Please be careful that this is not run anywhere in the scripts anymore, since that would massively mess up the analyses
 }
 
 convert_long_format <- function(x){
@@ -61,7 +40,6 @@ convert_long_format_mOTUs <- function(x){
 
 ## Load profiles for Western / non-Western
 ```{r}
-#nonWestern_file_list <- dir_ls("../CAZy_profiles_krazy_2.14.0/Non_Western/")
 nonWestern_file_list <- dir_ls(here("data", "Non_Western"))
 nonWestern_df_list <- map(nonWestern_file_list, read_delim)
 

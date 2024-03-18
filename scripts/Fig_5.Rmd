@@ -4,6 +4,13 @@ author: "QD"
 date: "2023-12-04"
 output: html_document
 ---
+## Load libraries
+```{r}
+library(SIAMCAT)
+library(aplot)
+```
+
+
 ## First part of Fig 5B (horizontal bar plots).
 ```{r}
 label.crc <- create.label(meta=sample_data(CRC_ps),label='Group', case='CRC')

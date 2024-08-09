@@ -183,8 +183,6 @@ complete_western_non_western_rel_abundances_wide <- as.matrix(complete_western_n
 class(complete_western_non_western_rel_abundances_wide) <- "numeric"
 OTU <- otu_table(complete_western_non_western_rel_abundances_wide, taxa_are_rows = TRUE)
 
-#saveRDS(complete_western_non_western_rel_abundances_wide, here("data", "Intermediate_Files", "20230929_complete_western_non_western_rel_abundances_wide.RDS"))
-#cmd_meta_non_westernized <- cmd_meta_non_westernized %>% filter(sample_id %in% nonWestern_df_list_rel_abun_long_merged$SampleID)
 ## Make an extra column that will serve for making PCoA handy, to discriminate between W/NW samples if both are sampled in the same study
 complete_western_non_western_metadata <- complete_western_non_western_metadata %>% mutate(study_name_W_NW_info = study_name) %>% mutate(study_name_W_NW_info = case_when(
   study_name_W_NW_info == "LiuW_2016" & non_westernized == "Non_Westernized" ~ "LiuW_2016_NW", 
@@ -198,6 +196,15 @@ complete_western_non_western_metadata$study_name_W_NW_info <- as.factor(complete
 ## Order first all the NW, then the W studies
 complete_western_non_western_metadata$study_name_W_NW_info <- factor(complete_western_non_western_metadata$study_name_W_NW_info, levels = c("BritoIL_2016", "KaurK_2020", "LiuW_2016_NW", "LokmerA_2019","Obregon-TitoAJ_2015_NW","PasolliE_2019","PehrssonE_2016","RampelliS_2015_NW","RosaBA_2018","RubelMA_2020","SmitsSA_2017","TettAJ_2019_a","TettAJ_2019_b","TettAJ_2019_c", "AsnicarF_2021", "HMP_2012", "LiuW_2016_W", "Obregon-TitoAJ_2015_W", "QinJ_2012", "RampelliS_2015_W", "SchirmerM_2016", "XieH_2016", "YachidaS_2019", "ZeeviD_2015"))
 
+## Here remove the timepoinst of individuals sampled twice and also only retain adults and seniors (so 18+)
+repeated_samples_to_remove_Rosa <- complete_western_non_western_metadata %>% filter(!(study_name == "RosaBA_2018" & days_from_first_collection == 0 | country == "LBR")) %>% filter(study_name == "RosaBA_2018")
+repeated_samples_to_remove_Pehrsson <- complete_western_non_western_metadata %>% filter(study_name == "PehrssonE_2016" & days_from_first_collection != 0) %>% filter(study_name == "PehrssonE_2016")
+
+samples_to_be_removed <- rbind(repeated_samples_to_remove_Rosa, repeated_samples_to_remove_Pehrsson)
+complete_western_non_western_metadata <- complete_western_non_western_metadata %>% filter(sample_id %nin% samples_to_be_removed$sample_id) %>% filter(age_category == "adult" | age_category == "senior")
+
+## Now add info on sample numbers per study
+
 count_samples_study_W_NW <- complete_western_non_western_metadata %>% dplyr::count(study_name_W_NW_info)
 complete_western_non_western_metadata <- left_join(complete_western_non_western_metadata, count_samples_study_W_NW, by = c("study_name_W_NW_info" = "study_name_W_NW_info"))
 complete_western_non_western_metadata$ntest <- paste("(n=", "", complete_western_non_western_metadata$n)
@@ -205,7 +212,7 @@ complete_western_non_western_metadata$ntest <- paste(complete_western_non_wester
 complete_western_non_western_metadata$ntest <- gsub(" ", "", complete_western_non_western_metadata$ntest)
 complete_western_non_western_metadata$study_name_W_NW_info_n <- paste(complete_western_non_western_metadata$study_name_W_NW_info, complete_western_non_western_metadata$ntest)
 
-complete_western_non_western_metadata$study_name_W_NW_info_n <- factor(complete_western_non_western_metadata$study_name_W_NW_info_n, levels = c("BritoIL_2016 (n=172)", "KaurK_2020 (n=31)", "LiuW_2016_NW (n=65)", "LokmerA_2019 (n=57)","Obregon-TitoAJ_2015_NW (n=36)","PasolliE_2019 (n=112)","PehrssonE_2016 (n=191)","RampelliS_2015_NW (n=27)","RosaBA_2018 (n=24)","RubelMA_2020 (n=175)","SmitsSA_2017 (n=40)","TettAJ_2019_a (n=68)","TettAJ_2019_b (n=44)","TettAJ_2019_c (n=50)", "AsnicarF_2021 (n=1098)", "HMP_2012 (n=95)", "LiuW_2016_W (n=45)", "Obregon-TitoAJ_2015_W (n=22)", "QinJ_2012 (n=174)", "RampelliS_2015_W (n=11)", "SchirmerM_2016 (n=471)", "XieH_2016 (n=169)", "YachidaS_2019 (n=246)", "ZeeviD_2015 (n=858)"))
+complete_western_non_western_metadata$study_name_W_NW_info_n <- factor(complete_western_non_western_metadata$study_name_W_NW_info_n, levels = c("BritoIL_2016 (n=154)", "KaurK_2020 (n=30)", "LiuW_2016_NW (n=65)", "LokmerA_2019 (n=57)","Obregon-TitoAJ_2015_NW (n=17)","PasolliE_2019 (n=111)","PehrssonE_2016 (n=57)","RampelliS_2015_NW (n=22)","RosaBA_2018 (n=14)","RubelMA_2020 (n=153)","SmitsSA_2017 (n=31)","TettAJ_2019_a (n=36)","TettAJ_2019_b (n=23)","TettAJ_2019_c (n=24)", "AsnicarF_2021 (n=1096)", "HMP_2012 (n=93)", "LiuW_2016_W (n=45)", "Obregon-TitoAJ_2015_W (n=19)", "QinJ_2012 (n=173)", "RampelliS_2015_W (n=11)", "SchirmerM_2016 (n=456)", "XieH_2016 (n=169)", "YachidaS_2019 (n=246)", "ZeeviD_2015 (n=858)"))
 
 count_samples_study <- complete_western_non_western_metadata %>% dplyr::count(study_name) %>% dplyr::rename("n_total" = n)
 complete_western_non_western_metadata <- left_join(complete_western_non_western_metadata, count_samples_study, by = c("study_name" = "study_name"))
@@ -222,7 +229,8 @@ westernized_non_westernized_ps <- phyloseq(OTU, sampledata)
 
 ## Here extract abundances of only the samples we'll continue with in the analyses
 complete_western_non_western_rel_abundances_wide_filtered_samples <- microbiome::abundances(westernized_non_westernized_ps)
-saveRDS(complete_western_non_western_rel_abundances_wide_filtered_samples, here("data", "Intermediate_Files", "20230929_complete_western_non_western_rel_abundances_wide.rds"))
+saveRDS(complete_western_non_western_rel_abundances_wide_filtered_samples, here("data", "Intermediate_Files", "20240809_complete_western_non_western_rel_abundances_wide.rds"))
+
 
 ## For manuscript, headers with keypoint and figure drafts.
 ```

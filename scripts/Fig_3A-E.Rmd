@@ -11,12 +11,14 @@ library(SIAMCAT)
 library(vegan)
 library(lmerTest)
 library(ggembl)
+library(ggpubr)
+library(patchwork)
 ```
 
 
 ## Fig 3A 
 ```{r}
-metadata_perm <- meta(westernized_non_westernized_ps)
+metadata_perm <- microbiome::meta(westernized_non_westernized_ps)
 canberra_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "canberra")
 betadisper_test <- betadisper(canberra_matrix, metadata_perm$non_westernized)
 permutest(betadisper_test) ##Means we reject that groups have same dispersions
@@ -27,24 +29,24 @@ adonis_result_canberra <- adonis2(canberra_matrix ~ non_westernized,data = metad
 pcoa_canberra <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'canberra')
 mycolors <- c("#FED470", "#FEC561", "#FEB651", "#FDA848", "#FD9A41", "#FD8D3C", "#FC7535", "#FC5D2E", "#F84728", "#EF3322", "#E6201D", "#D6131E", "#C30922", "#B10026", "#A3CCE3", "#88BEDC", "#6BAED6", "#539ECC", "#3D8DC3", "#2A7AB9", "#1967AD", "#0B559F", "#084287", "#08306B")
 
-Fig3A <- plot_ordination(westernized_non_westernized_ps, pcoa_canberra, color="study_name_W_NW_info_n", title='PCoA (Canberra)') + theme_classic() + geom_point(size=2, alpha = 0.05) + labs(color="Study") + scale_color_manual(values=mycolors) + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + xlab("PC1 [12.6%]") + ylab("PC2 [10.1%]") + annotate("text", x = 0, y = -0.33, label = "P-value = 0.001") + annotate("text", x = 0, y = -0.35, label = "paste(italic(R) ^ 2, \" = 0.073\")", parse = TRUE) #+ theme(legend.position = "none")
+Fig3A <- plot_ordination(westernized_non_westernized_ps, pcoa_canberra, color="study_name_W_NW_info_n", title='PCoA (Canberra)') + theme_classic() + geom_point(size=1, alpha = 0.05) + labs(color="Study") + scale_color_manual(values=mycolors) + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + guides(color = "none") + xlab("PC1 [12.4%]") + ylab("PC2 [10.5%]") + annotate("text", x = 0, y = -0.33, label = "P-value = 0.001") + annotate("text", x = 0, y = -0.35, label = "paste(italic(R) ^ 2, \" = 0.066\")", parse = TRUE) #+ theme(legend.position = "none")
 
-
+ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3A.pdf", Fig3A, width = 120, height = 75, unit = "mm")
 ```
 
 ## Extended Data Fig 2
 ```{r}
 ## Bray-Curtis
-metadata_perm <- meta(westernized_non_westernized_ps)
+metadata_perm <- microbiome::meta(westernized_non_westernized_ps)
 bray_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "bray")
 betadisper_test <- betadisper(bray_matrix, metadata_perm$non_westernized)
 permutest(betadisper_test) ##Means we reject that groups have same dispersions
 set.seed(1000) ## To ensure reproducible results
 adonis_result_bray <- adonis2(bray_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
-## Results are R2 = 0.092 and p 0.001
+## Results are R2 = 0.0798 (so 0.080) and p 0.001
 
 pcoa_info <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'bray')
-pcoa_plot_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_info, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [38.6%]") + ylab("PC2 [15.3%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+pcoa_plot_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_info, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [39.1%]") + ylab("PC2 [15.0%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
 
 ## Manhattan
 manhattan_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "manhattan")
@@ -53,7 +55,7 @@ permutest(betadisper_test) ##Means we cannot reject that the groups have the sam
 set.seed(1000) ## To ensure reproducible results
 adonis_result_manhattan <- adonis2(manhattan_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
 
-## P-value 0.001 and R2 = 0.08946
+## P-value 0.001 and R2 = 0.08946 --> This needs to be rerun / adapted for the revisions
 westernized_non_westernized_ps_log10 <- microbiome::transform(westernized_non_westernized_ps, "log10") ## Rel abundances
 pcoa_manhattan <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'manhattan')
 pcoa_plot_manhattan_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_manhattan, color="study_name_W_NW_info", title='PCoA (Manhattan)') + theme_classic() + geom_point(size=2, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
@@ -67,18 +69,21 @@ W_NW_rel_abun_long <- psmelt(westernized_non_westernized_ps)
 CAZyme_count <- W_NW_rel_abun_long %>% filter(Abundance > 1) %>% group_by(Sample) %>% summarise(across(Abundance, ~sum(.x != 0))) %>% rename(Abundance = "Unique_CAZyme_count") ## Note that here it is absolutely crucial to filter on Abundance 1 to get the RPKM filter in there for prevalence estimation. For initial exploration of e.g. read count correlations it isn't really necessary, but for the final figures definitely so.
 CAZyme_count_df <- left_join(CAZyme_count, sampledata, by = c("Sample" = "sample_id"))
 
-write_tsv(CAZyme_count_df, here("data", "Intermediate_Files", "20230929_CAZyme_count_df.tsv"))
+write_tsv(CAZyme_count_df, here("data", "Intermediate_Files", "20240809_CAZyme_count_df.tsv"))
 
 Fig3B <- ggplot(CAZyme_count_df) +
   theme_publication() +
   aes(x = non_westernized, y = Unique_CAZyme_count, fill = non_westernized) +
-  geom_boxplot(outlier.alpha = 0.2) +
+  geom_boxplot(outlier.alpha = 0) + ## Since we do not want to see outliers
   stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_text(size=11, angle = 45, hjust = 1, vjust = 1)) +
+  guides(fill = "none") +
   xlab("") +
   ylab("Number of unique CAZymes") + 
   theme(axis.text.x = element_blank())
+
+ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3B.pdf", Fig3B, width = 35, height = 45, unit = "mm")
 
 median_order <- CAZyme_count_df %>% group_by(study_name_info_n) %>% summarise(Median = median(Unique_CAZyme_count)) %>% arrange(-Median)
 
@@ -120,23 +125,29 @@ RPKM_per_substrate_W_NW_substrate_ratios <- RPKM_per_substrate_W_NW %>% pivot_wi
 Fig_3C <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
   theme_classic() +
   aes(x = non_westernized, y = Mucin_to_DF, fill = non_westernized) +
-  geom_boxplot(outlier.alpha = 0.2) +
+  geom_boxplot(outlier.alpha = 0) +
   stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_blank()) +
+  guides(fill = "none") +
   xlab("") +
   ylab("Mucin to DF ratio")
+
+ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3C.pdf", Fig_3C, width = 35, height = 45, unit = "mm")
+
 
 Fig_3D <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
   theme_classic() +
   aes(x = non_westernized, y = GAG_to_DF, fill = non_westernized) +
-  geom_boxplot(outlier.alpha = 0.2) +
+  geom_boxplot(outlier.alpha = 0) +
   stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_blank()) +
+  guides(fill = "none") +
   xlab("") +
   ylab("GAG to DF ratio")
 
+ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3D.pdf", Fig_3D, width = 35, height = 45, unit = "mm")
 ```
 
 ## Fig 3E
@@ -169,8 +180,9 @@ Fig3E_1 <- ggplot(top_15_each_direction_W_NW %>% mutate(cazyme_fam=factor(cazyme
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   xlab("Generalized fold change") +
   ylab("") +
-  theme(axis.ticks = element_blank()) +
-  theme(legend.position = "none")
+  theme(axis.ticks.y = element_blank()) +
+  theme(legend.position = "none") +
+  xlab("")
 
 ## Part 2 of panel E
 W_NW_rel_abun_long_filtered <- W_NW_rel_abun_long %>% filter(OTU %in% siamcat_NW_results_associations$cazyme_fam)
@@ -190,10 +202,12 @@ Fig3E_2 <- ggplot(prevalence_per_cazyme_long_filtered %>% mutate(OTU=factor(OTU,
   #scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   coord_flip() +
   xlab("") +
-  ylab("CAZyme family\nprevalence [%]") +
+  ylab("") +
+  #ylab("CAZyme family\nprevalence [%]") +
   theme(axis.text.y = element_blank()) +
-  theme(axis.ticks = element_blank()) +
-  theme(legend.position = "none")
+  theme(axis.ticks.y = element_blank()) +
+  theme(legend.position = "none") + 
+  ylab("")
 
 ## Part 3 of panel E
 Fig3E_3 <- ggplot(prev_abun_Almeida_genomes_filtered %>% filter(cazy_family %in% top_15_each_direction$cazyme_fam) %>% mutate(cazy_family=factor(cazy_family, levels = rev(top_15_each_direction$cazyme_fam)))) +
@@ -203,10 +217,19 @@ Fig3E_3 <- ggplot(prev_abun_Almeida_genomes_filtered %>% filter(cazy_family %in%
   scale_fill_gradient(low = "white", high = "black") +
   xlab("") +
   ylab("") +
-  labs(fill="Microbial\nprevalence") +
+  #labs(fill="Microbial\nprevalence") +
+  guides(fill = "none") +
   theme(axis.text.y = element_blank()) +
-  theme(axis.ticks = element_blank()) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.ticks.y = element_blank()) +
+  theme(axis.text.x = element_blank())
+
+layout_matrix <- "
+AAAABBBCCCC
+"
+
+Fig3E <- Fig3E_1 + Fig3E_2 + Fig3E_3 + plot_layout(design = layout_matrix)
+
+ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3E.pdf", Fig3E, width = 130, height = 80, unit = "mm")
 ```
 
 ## Extended Data Figs 4 and 5

@@ -1,0 +1,211 @@
+DATASET_HEATMAP
+#In heatmaps, each ID is associated to multiple numeric values, which are displayed as a set of colored boxes defined by a color gradient
+#lines starting with a hash are comments and ignored during parsing
+#=================================================================#
+#                    MANDATORY SETTINGS                           #
+#=================================================================#
+#select the separator which is used to delimit the data below (TAB,SPACE or COMMA).This separator must be used throughout this file.
+#SEPARATOR TAB
+SEPARATOR SPACE
+#SEPARATOR COMMA
+
+#label is used in the legend table (can be changed later)
+DATASET_LABEL example_heatmap
+
+#dataset color (can be changed later)
+COLOR #ff0000
+
+#define labels for each individual field column
+FIELD_LABELS DF GAG Glycogen Mucin PG Unknown
+
+#=================================================================#
+#                    OPTIONAL SETTINGS                            #
+#=================================================================#
+
+
+#Heatmaps can have an optional Newick formatted tree assigned. Its leaf IDs must exactly match the dataset FIELD_LABELS.
+#The tree will be used to sort the dataset fields, and will be displayed above the dataset. It can have branch lengths defined.
+#All newlines and spaces should be stripped from the tree, and COMMA cannot be used as the dataset separator if a FIELD_TREE is provided.
+FIELD_TREE (((f1:0.2,f5:0.5):1,(f2:0.2,f3:0.3):1.2):0.5,(f4:0.1,f6:0.5):0.8):1;
+
+
+#=================================================================#
+#     all other optional settings can be set or changed later     #
+#           in the web interface (under 'Datasets' tab)           #
+#=================================================================#
+
+#Each dataset can have a legend, which is defined using LEGEND_XXX fields below
+#For each row in the legend, there should be one shape, color and label.
+#Optionally, you can define an exact legend position using LEGEND_POSITION_X and LEGEND_POSITION_Y. To use automatic legend positioning, do NOT define these values
+#Optionally, shape scaling can be present (LEGEND_SHAPE_SCALES). For each shape, you can define a scaling factor between 0 and 1.
+#To order legend entries horizontally instead of vertically, set LEGEND_HORIZONTAL to 1
+#Shape should be a number between 1 and 6, or any protein domain shape definition.
+#1: square
+#2: circle
+#3: star
+#4: right pointing triangle
+#5: left pointing triangle
+#6: checkmark
+
+#LEGEND_TITLE,Dataset legend
+#LEGEND_POSITION_X,100
+#LEGEND_POSITION_Y,100
+#LEGEND_HORIZONTAL,0
+#LEGEND_SHAPES,1,2,3
+#LEGEND_COLORS,#ff0000,#00ff00,#0000ff
+#LEGEND_LABELS,value1,value2,value3
+#LEGEND_SHAPE_SCALES,1,1,0.5
+
+#left margin, used to increase/decrease the spacing to the next dataset. Can be negative, causing datasets to overlap.
+#MARGIN 0
+
+#width of the individual boxes
+#STRIP_WIDTH 25
+
+#always show internal values; if set, values associated to internal nodes will be displayed even if these nodes are not collapsed. It could cause overlapping in the dataset display.
+#SHOW_INTERNAL 0
+
+
+#show dashed lines between leaf labels and the dataset
+#DASHED_LINES 1
+
+#if a FIELD_TREE is present, it can be hidden by setting this option to 0
+#SHOW_TREE 1
+
+#define the color for the NULL values in the dataset. Use the letter X in the data to define the NULL values
+#COLOR_NAN #000000
+
+#automatically create and display a legend based on the color gradients and values defined below
+#AUTO_LEGEND 1
+
+#define the heatmap gradient colors. Values in the dataset will be mapped onto the corresponding color gradient.
+COLOR_MIN #0000FF
+COLOR_MAX #FF0000
+
+#you can specify a gradient with three colors (e.g red to yellow to green) by setting 'USE_MID_COLOR' to 1, and specifying the midpoint color
+USE_MID_COLOR 1
+COLOR_MID #FFFFFF
+
+#By default, color gradients will be calculated based on dataset values. You can force different values to use in the calculation by setting the values below:
+#USER_MIN_VALUE  -6
+USER_MID_VALUE 0
+#USER_MAX_VALUE  6
+
+#border width; if set above 0, a border of specified width (in pixels) will be drawn around individual cells
+#BORDER_WIDTH 0
+
+#border color; used only when BORDER_WIDTH is above 0
+#BORDER_COLOR #0000ff
+
+#display or hide the text labels above each field column
+#SHOW_LABELS 1
+
+#text label size factor
+#SIZE_FACTOR 1
+
+#text label rotation
+#LABEL_ROTATION 0
+
+#text label shift in pixels (positive or negative)
+#LABEL_SHIFT 0
+
+
+#Internal tree nodes can be specified using IDs directly, or using the 'last common ancestor' method described in iTOL help pages
+#=================================================================#
+#       Actual data follows after the "DATA" keyword              #
+#=================================================================#
+DATA
+#ID1 value1 value2 value3 value4 value5 value6
+#You can use the 'X' letter instead of the numeric value to denote the empty fields. These will be colored using 'COLOR_NAN' option set above.
+#9606 100 300 250 100 50 210
+#15303 20 X 130 200 300 15
+Coprobacillus 0.300051427 3.000000000 -0.001917304 -0.279295105 -0.56830467 0.3494025
+Pseudoflavonifractor -0.232566661 0.007087288 -0.575842073 -0.387471580 0.29904930 -0.8422216
+Collinsella -0.489219109 -0.381325941 -0.767177832 -0.598663405 -1.24412713 -0.8422216
+Leuconostoc -0.195849136 -0.780603875 0.031536236 -0.501678800 0.36348131 -0.8422216
+Ruminococcus 0.329596823 -0.359121823 1.003217556 -0.178989261 -0.55340145 0.3674574
+Staphylococcus -0.674106660 -0.393509932 -0.843868815 -0.439016861 0.33067890 0.3494025
+Streptococcus -0.253206948 -0.251189679 0.346630049 -0.410477437 0.18973943 0.4983555
+Olsenella -0.492556411 0.164625520 -0.446841370 -0.580484391 -1.06193560 -0.8422216
+Coprobacter 1.652942620 2.179526275 -0.108530703 2.847911869 0.45284831 0.3494025
+Enterococcus 0.232040632 0.056696101 -0.355501658 0.125931615 2.54507845 0.6297846
+Lactococcus -0.116545875 -0.150450945 0.191712109 -0.208232834 0.82709035 -0.8422216
+Intestinimonas -0.578803821 -0.780603875 -0.808434250 -0.427048340 0.52132432 0.3494025
+Fusicatenibacter 1.218702797 -0.780603875 1.726820475 1.162354317 -0.56976548 -0.8422216
+Eisenbergiella 3.000000000 1.091677427 3.000000000 3.000000000 0.87279491 0.3494025
+Enorma -0.459671354 -0.255476433 -0.350090843 -0.582189236 -1.06532676 -0.8422216
+Senegalimassilia -0.875123353 -0.780603875 -0.876843714 -0.628889812 -1.13710628 -0.8422216
+Clostridium -0.035856944 0.292612235 -0.064415483 -0.198240785 -0.33677790 0.8429868
+Romboutsia -0.253399492 -0.195461868 0.300825204 -0.157926376 0.53168277 1.5410265
+Intestinibacter -0.529304008 -0.150450945 -0.293144587 -0.516755661 -0.30595169 -0.8422216
+Erysipelatoclostridium 1.221407663 1.970086938 0.434613433 0.181586996 -0.32156423 0.7257048
+Lachnoclostridium 0.196518244 0.512081385 0.950463414 -0.050098375 0.77656280 0.3494025
+Tyzzerella 0.352441182 0.122467402 0.913936878 0.772482949 0.20635764 1.9753568
+Treponema 0.226159904 -0.223512154 0.992839552 -0.274221161 0.53460438 -0.8422216
+Faecalitalea -0.556015958 -0.780603875 -0.204779706 -0.554785742 -1.13424133 -0.8422216
+Holdemanella -0.603769887 -0.158416361 -0.359590895 -0.356362407 -0.96025539 0.3494025
+Lactobacillus -0.172168727 0.102980125 -0.083591367 -0.296529567 0.76251859 0.4288441
+Megamonas -0.141362343 -0.465527410 0.630611656 -0.354716181 -0.51866100 1.5410265
+Hungatella 3.000000000 3.000000000 3.000000000 1.980178067 0.69971981 -0.8422216
+Bifidobacterium 0.410779838 0.205426789 1.807493146 -0.001004873 -0.97390888 -0.8422216
+Eubacterium -0.102677189 1.399470656 0.460479986 -0.397152028 0.05236057 0.3980402
+Dorea -0.247973949 -0.206714599 0.389754310 -0.381775486 -0.56018149 0.4447324
+Ruthenibacterium -0.020691265 0.057724577 0.105875625 0.182567913 -1.04919481 0.6175179
+Azospirillum -0.721796729 -0.780603875 -0.481518979 -0.571009934 0.02880424 -0.8422216
+Turicibacter 0.543001430 -0.780603875 2.399057471 0.043651252 -0.34187963 -0.8422216
+Massiliomicrobiota -0.139623107 0.164625520 0.131511781 -0.446045184 -0.60774645 -0.8422216
+Prevotellamassilia -0.102440620 0.502756361 -0.309712574 1.217028162 0.63080385 -0.8422216
+Libanicoccus -0.816709108 -0.780603875 -1.021073666 -0.643171860 -1.48130886 -0.8422216
+Duodenibacillus -0.815821522 -0.780603875 -1.403596584 -0.648678192 0.04442258 -0.8422216
+Faecalicatena 1.230241413 -0.780603875 1.589697505 1.258042126 1.34616366 -0.8422216
+Merdimonas 0.290998051 2.055084310 1.681670229 -0.052388351 -0.12032395 -0.8422216
+Anaerostipes -0.310524068 -0.185459441 0.363748257 -0.556501063 -0.03787634 0.5196345
+Mycoplasma -0.822898697 -0.780603875 -1.253095764 -0.636516857 -0.37583613 -0.8422216
+Faecalibacterium 0.293806050 -0.179377857 0.207324483 0.039346063 -0.65739175 0.3494025
+Methanobrevibacter -0.905074796 -0.150450945 -1.177845354 -0.639632076 -1.43207426 -0.8422216
+Alistipes 0.004313774 1.104505091 -0.530438885 0.453662937 0.64092410 0.3494025
+Akkermansia 0.026409583 1.285750611 -0.678967254 1.698606445 -0.75365356 -0.8422216
+Anaerotruncus -0.306207758 -0.465527410 -0.630786817 0.133810879 -0.71113910 0.3494025
+Oribacterium -0.432473187 -0.780603875 0.026161207 -0.268741302 -0.91159425 0.3494025
+Comamonas -0.787038381 -0.780603875 -1.403596584 -0.644155134 0.86537276 -0.8422216
+Odoribacter 0.074730445 -0.377796538 -0.521104368 0.562650010 -0.20084734 0.3494025
+Subdoligranulum -0.888494985 -0.780603875 0.552914078 -0.637164953 -1.46455254 -0.8422216
+Veillonella -0.858116674 -0.465527410 -1.247880389 -0.629447836 -1.01536083 -0.8422216
+Brachyspira -0.521456281 -0.379597465 -1.058329997 -0.115500090 0.92415284 -0.8422216
+Rothia -0.620882307 -0.465527410 -0.532841839 -0.642345911 -0.78951254 -0.8422216
+Phascolarctobacterium -0.904048661 -0.780603875 -0.936251932 -0.605403276 -1.00048589 0.3494025
+Coprococcus 0.457975217 -0.140433129 1.078254398 -0.305607325 -0.14646558 0.3549578
+Bilophila -0.807295590 -0.150450945 -0.952094124 -0.568665643 0.76749270 0.3494025
+Parabacteroides 1.433677416 0.906455195 0.221384164 2.558719955 1.58533647 0.8699096
+Barnesiella 0.849002172 0.768267162 -0.539799806 2.188860182 0.76651336 0.3494025
+Dialister -0.888160735 -0.307989177 -0.450424723 -0.633249283 -0.83321673 0.3494025
+Sutterella -0.786687248 -0.465527410 -0.665847466 -0.635109017 0.26026168 -0.8422216
+Acetobacter -0.672806080 -0.780603875 -0.511341722 -0.571786202 -0.03667538 -0.8422216
+Coraliomargarita 1.081393264 1.621854171 -0.634370170 0.452435202 -0.48958342 3.0000000
+Oscillibacter -0.662331063 -0.320107503 -0.802416355 -0.617043548 -0.15478927 1.1438185
+Weissella -0.200114303 -0.780603875 -0.641686182 -0.438921367 1.74707394 -0.8422216
+Acinetobacter -0.711776588 -0.465527410 -1.403596584 -0.534012554 2.08436767 0.3600420
+Acidiphilium -0.002166719 -0.465527410 -0.478700635 0.187182966 -1.18184348 0.5480065
+Mitsuokella -0.403086541 -0.250859928 -0.098722452 -0.437153044 -0.92169557 -0.8422216
+Citrobacter 0.115438866 -0.292985536 0.510234741 -0.222430587 2.26860373 0.3764848
+Enterobacter 0.777726985 -0.435988991 1.977945998 -0.026768613 2.94154805 0.3970674
+Escherichia 0.071862600 -0.450523769 0.698825402 -0.263786237 2.70512107 0.4069556
+Klebsiella 0.654973860 -0.294860991 1.167249365 -0.167403620 2.20405238 0.3637883
+Blautia 0.285078517 -0.111146928 1.094096313 0.254583076 -0.11965177 1.9105339
+Paraprevotella 2.237497636 -0.421141638 -0.361487993 1.486837635 0.71236896 0.3661075
+Parasutterella -0.797385096 -0.780603875 -1.102594944 -0.648678192 0.37808938 -0.8422216
+Butyricicoccus -0.621772429 -0.150450945 -0.290965521 -0.641088941 -0.95787930 -0.8422216
+Haemophilus -0.657009877 -0.780603875 -0.618015380 -0.640235150 0.17962079 0.3494025
+Bacteroides 2.930354705 2.695807320 0.535290644 3.000000000 1.41403085 0.8194609
+Butyrivibrio 0.064885340 -0.189835503 1.756920639 -0.409626991 -0.63870064 0.3494025
+Succinivibrio -0.317393152 -0.464398103 0.904594566 -0.527201771 0.26077766 -0.8422216
+Prevotella 0.784558453 0.090232466 0.379708630 0.588841135 0.62099577 0.5513388
+Roseburia 0.854437132 -0.139956928 1.577762539 0.068682454 0.10762090 0.3645400
+Eggerthella -0.900238656 -0.465527410 -0.801593304 -0.606300616 -1.28412540 -0.8422216
+Cryptobacterium -0.865171296 -0.780603875 -1.403596584 -0.648678192 -1.39690669 -0.8422216
+Fusobacterium -0.535962639 0.902137838 -0.597181742 -0.534885213 -0.93217507 -0.8422216
+Desulfovibrio -0.817702433 -0.150450945 -0.952094124 -0.570851269 -0.27995413 0.3494025
+Acidaminococcus -0.842780308 0.164625520 -0.892520882 -0.532697457 -0.65372342 -0.8422216
+Megasphaera -0.700620809 -0.780603875 -0.655610984 -0.542015028 -0.33137426 0.3494025
+Flavonifractor -0.550802226 -0.465527410 -0.793964230 -0.432000124 -0.12148545 2.6664492
+Selenomonas -0.192868576 -0.173789942 -0.500591663 -0.459861071 -0.70787811 -0.8422216

@@ -515,8 +515,8 @@ colAnnots <- colAnnots[match(colnames(basee), rownames(colAnnots)), ]
 
 chosenOnes <- list(
     c("Bifidobacterium", "GH13_3"),
-    c("Bifidobacterium", "GH13_30"),
-    c("Collinsella", "GH13_30"),    
+    c("Collinsella", "GH13_30"),        
+    #c("Bifidobacterium", "GH13_30"),
     c("Bacteroides", "GH95"),
     c("Prevotella", "GH95"),
     c("Akkermansia", "GT31")

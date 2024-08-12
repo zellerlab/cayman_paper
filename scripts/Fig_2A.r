@@ -235,8 +235,10 @@ tmp <- pPredGenus %>%
   #                 non_westernized)) %>% 
   #rename(genus = name) %>% 
   ungroup() %>% 
+  group_by(sampleID, genus) %>% 
+  summarize(relAb = sum(relAb)) %>%
   group_by(genus) %>% 
-  #mutate(relAb = 10^value) %>% 
+  #mutate(relAb = 10^relAb) %>% 
   summarize(meanRelAb = mean(relAb)) %>%
   mutate(genus = str_replace(genus, 'g__', ''))
 

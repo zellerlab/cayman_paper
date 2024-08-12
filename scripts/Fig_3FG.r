@@ -33,16 +33,16 @@ color_data_vec <- co
 names(color_data_vec) <- phy
 
 
-p <- read_tsv(here('data', 'w_nw_profiles.tsv'))
+p <- read_tsv(here('data', '2024_08_12_w_nw_profiles.tsv'))
 
 motus3.0_taxonomy <- read_tsv(here('data', "motus3.0_taxonomy.tsv"))
 
-meta <- read_csv(here('data', 'Western_non_Western_metadata_meta_analysis.csv')) %>%
+meta <- read_csv(here('data', '2024_08_12_Western_non_Western_metadata_meta_analysis.csv')) %>%
   rename(sampleID = sample_id)  
 
 # Load cazy annotations
 #cazyAnnots <- read_tsv(here('data', "20230609_glycan_annotations_cleaned_Nic.tsv"))
-completed_substrate_annotations <- read_xlsx(here("data", "20230607_glycan_annotations_cleaned.xlsx"))
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned
 
@@ -50,7 +50,7 @@ tree.filtered <- read.tree(here('data', "tree.genus.ncbi.filtered.nwk"))
 
 
 #cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df_Nic.tsv")) %>%
-cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df.tsv")) %>%  
+cazy_richness <- read_tsv(here('data', "Intermediate_Files", "20240809_CAZyme_count_df.tsv")) %>%  
   rename(sampleID = Sample) %>%
   select(all_of(c("sampleID", "Unique_CAZyme_count")))
 
@@ -58,7 +58,7 @@ almeidaCAZy <- read_tsv(here('data', 'almeida_cazy_annotations.tsv'))
 
 
 #assocs_W <- read_csv(here('data', 'siamcat_NW_results_associations_for_Nic.csv')) %>%
-assocs_W <- read_csv(here('data', 'siamcat_NW_results_associations.csv')) %>%  
+assocs_W <- read_csv(here('data', "Intermediate_Files", 'siamcat_NW_results_associations.csv')) %>%  
   filter(p.adj < 0.05) %>%
   #rownames_to_column('cazyme_fam') %>%
   # select(famil,fc) %>%
@@ -248,6 +248,7 @@ numberSpecies <- list()
 # generaLeft <- genera
 #generaLeft <- colnames(pPredGenus)[! colnames(pPredGenus) %in% c("sampleID", "study_name", "non_westernized",'Unique_CAZyme_count')]
 generaLeft <- tree.filtered$tip.label
+generaLeft <- generaLeft[!generaLeft %in% c("Leuconostoc")]
 i <- 1
 while (TRUE){
   print("Selecting best genus group to add...")
@@ -280,7 +281,7 @@ while (TRUE){
 
   i <- i + 1
   generaLeft <- generaLeft[!generaLeft == currentGenus]
-  if (i == length(tree.filtered$tip.label) + 1){
+  if (i == length(tree.filtered$tip.label)){
     break
   }  
 }

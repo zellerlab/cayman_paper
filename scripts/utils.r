@@ -130,6 +130,9 @@ get_pw_assocs_species_level_per_genus <- function(listOfMatrices,
     for(cazyFamily in cazyFamiliesToTest) {
       g <- cbind(listOfMatrices[[genus]], t(matrix2[cazyFamily, , drop = F]))
       print(str_c(cazyFamily, " ~ ", str_c(colnames(listOfMatrices[[genus]]), collapse = " + ", sep = " + ")))
+      if (length(colnames(listOfMatrices[[genus]])) == 0) {
+        next
+      }
       tmp <- lm(data = g, formula = str_c(cazyFamily, " ~ ", str_c(colnames(listOfMatrices[[genus]]), collapse = " + ", sep = " + ")))
       resLM[[length(resLM) + 1]] <- tmp
       names(resLM)[length(resLM)] <- str_c(genus, cazyFamily, sep = "__", collapse = "__")
@@ -327,7 +330,7 @@ get_genera_assocs_with_crc_cbms <- function(baseData = NULL, taxonName = NULL) {
     geom_point(data = plotData, aes_string(x = "innerPlot", y = "jaccard", size = "N", color = taxonName, shape = taxonName, group = 'pairs'), position = 'dodge') +
     geom_point(data = plotData %>% filter(!is.na(substrateClass)), aes_string(x = "innerPlot", y = "jaccard"), size = 5, shape = 1, color = 'red') +
     geom_text_repel(data = plotData, aes(x = innerPlot, y = jaccard, label = outerPlot), max.overlaps = Inf) +
-    scale_color_highres(numShapeLevels = 5, name = taxonName) +
+    scale_color_highres(num_shape_levels = 5, name = taxonName) +
     guides(color = guide_legend(ncol = 2), shape = guide_legend(ncol = 2)) + 
     theme_classic() +
     xlab("CBMs") +

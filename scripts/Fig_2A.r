@@ -26,7 +26,7 @@ almeidaCAZy <- read_tsv(here('data', 'almeida_cazy_annotations.tsv'))
 
 # Load cazy annotations
 #cazyAnnots <- read_tsv(here('data', "20230609_glycan_annotations_cleaned_Nic.tsv"))
-completed_substrate_annotations <- read_xlsx(here("data", "20230607_glycan_annotations_cleaned.xlsx"))
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned
 
@@ -217,38 +217,38 @@ for (i in 1:dim(substrateNsByGenus)[1]){
   write(str_c(family, substrateNsByGenus$stri[i], sep = " ", collapse = " "), filePath, append = T)
 }
 
-# 5 Leaf nodes scaled to the genus mean relative abundance
-file.copy(from = here('data', 'itol_template_files/dataset_symbols_template.txt'),
-          here('data', 'itol_files/dataset_symbols_template.txt'), overwrite = T)
-filePath <- here('data', 'itol_files/dataset_symbols_template.txt')
-tx  <- readLines(filePath)
-tx2  <- gsub(pattern = "MAXIMUM_SIZE,50", replace = "MAXIMUM_SIZE,25", x = tx)
-writeLines(tx, con=filePath)
+# # 5 Leaf nodes scaled to the genus mean relative abundance
+# file.copy(from = here('data', 'itol_template_files/dataset_symbols_template.txt'),
+#           here('data', 'itol_files/dataset_symbols_template.txt'), overwrite = T)
+# filePath <- here('data', 'itol_files/dataset_symbols_template.txt')
+# tx  <- readLines(filePath)
+# tx2  <- gsub(pattern = "MAXIMUM_SIZE,50", replace = "MAXIMUM_SIZE,25", x = tx)
+# writeLines(tx, con=filePath)
 
 
-pPredGenus <- read_tsv(here('data', 'w_nw_profiles.tsv'))
+# pPredGenus <- read_tsv(here('data', '2024_08_12_w_nw_profiles.tsv'))
 
-tmp <- pPredGenus %>% 
-  select(-Unique_CAZyme_count) %>% 
-  pivot_longer(-c(sampleID, 
-                  study_name, 
-                  non_westernized)) %>% 
-  rename(genus = name) %>% 
-  ungroup() %>% 
-  group_by(genus) %>% 
-  mutate(relAb = 10^value) %>% 
-  summarize(meanRelAb = mean(relAb))
+# tmp <- pPredGenus %>% 
+#   #select(-Unique_CAZyme_count) %>% 
+#   # pivot_longer(-c(sampleID, 
+#   #                 study_name, 
+#   #                 non_westernized)) %>% 
+#   #rename(genus = name) %>% 
+#   ungroup() %>% 
+#   group_by(genus) %>% 
+#   #mutate(relAb = 10^value) %>% 
+#   summarize(meanRelAb = mean(log10(relAb+pseudocount)))
 
-tmp  <- tmp %>%
-  filter(!is.na(genus))
+# tmp  <- tmp %>%
+#   filter(!is.na(genus))
 
-tmp <- tmp[tmp$genus %in% tree.filtered$tip.label, ]
+# tmp <- tmp[tmp$genus %in% tree.filtered$tip.label, ]
 
-for (i in 1:dim(tmp)[1]){
-  family <- tmp$genus[i]
-  val <- tmp$meanRelAb[i[]]
-  write(str_c(family, "2", 1/-log10(val), "#000000", "1", "1",  sep = ",", collapse = ","), filePath, append = T)
-}
+# for (i in 1:dim(tmp)[1]){
+#   family <- tmp$genus[i]
+#   val <- tmp$meanRelAb[i[]]
+#   write(str_c(family, "2", 1/-log10(val), "#000000", "1", "1",  sep = ",", collapse = ","), filePath, append = T)
+# }
 
 # Now upload tree.genus.ncbi.filtered.nwk + all generated itol_template_files to itol.embl.de to generate Fig 2A
 

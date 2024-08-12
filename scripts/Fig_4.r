@@ -11,22 +11,22 @@ source(here('scripts', 'utils.r'))
 
 cazyPc <- 0.01
 
-p <- read_tsv(here('data', 'w_nw_profiles.tsv'))
+p <- read_tsv(here('data', '2024_08_12_w_nw_profiles.tsv'))
 
 # Load cazy annotations
 #cazyAnnots <- read_tsv(here('data', "20230609_glycan_annotations_cleaned_Nic.tsv"))
-completed_substrate_annotations <- read_xlsx(here("data", "20230607_glycan_annotations_cleaned.xlsx"))
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned
 
 #cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df_Nic.tsv")) %>%
-cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df.tsv")) %>%  
+cazy_richness <- read_tsv(here('data', 'Intermediate_Files', "20240809_CAZyme_count_df.tsv")) %>%  
   rename(sampleID = Sample) %>%
   select(all_of(c("sampleID", "Unique_CAZyme_count")))
 
 motus3.0_taxonomy <- read_tsv(here('data', "motus3.0_taxonomy.tsv"))
 
-meta <- read_csv(here('data', 'Western_non_Western_metadata_meta_analysis.csv')) %>%
+meta <- read_csv(here('data', '2024_08_12_Western_non_Western_metadata_meta_analysis.csv')) %>%
   rename(sampleID = sample_id)  
 
 almeidaCAZy <- read_tsv(here('data', 'almeida_cazy_annotations.tsv'))
@@ -128,7 +128,7 @@ pPredGenusCountsWithoutPseudoCountCLR[, !colnames(pPredGenusCountsWithoutPseudoC
 
 
 #nwc <- readRDS(here('data', '20230929_complete_western_non_western_rel_abundances_wide_Nic.RDS'))
-nwc <- readRDS(here('data', '20230929_complete_western_non_western_rel_abundances_wide.rds'))
+nwc <- readRDS(here('data', "Intermediate_Files", '20230929_complete_western_non_western_rel_abundances_wide.RDS'))
 
 nwc <- nwc[, colnames(nwc) %in% pPredCountsWithoutPseudoCountCLR$sampleID]
 pPredCountsWithoutPseudoCountCLR <- pPredCountsWithoutPseudoCountCLR[pPredCountsWithoutPseudoCountCLR$sampleID %in% colnames(nwc), ]
@@ -388,7 +388,7 @@ heatmapData <- heatmapData %>%
 
 
 #assocs_W <- read_csv(here('data', 'siamcat_NW_results_associations_for_Nic.csv')) %>%
-assocs_W <- read_csv(here('data', 'siamcat_NW_results_associations.csv')) %>%
+assocs_W <- read_csv(here('data', "Intermediate_Files", 'siamcat_NW_results_associations.csv')) %>%
   filter(p.adj < 0.05) %>%
   #rownames_to_column('cazyme_fam') %>%
   # select(famil,fc) %>%
@@ -550,7 +550,7 @@ cell_fun_W = colorRamp2(c(0, max(basee[cell_group == "W_Higher" & !is.na(cell_gr
 cell_fun_NW = colorRamp2(c(0, max(basee[cell_group == "NW_Higher" & !is.na(cell_group == "NW_Higher")], na.rm = TRUE)), c("white", '#D41645'))
 cell_fun_REST = colorRamp2(c(0, max(basee[cell_group == "similar" & !is.na(cell_group == "similar")], na.rm = TRUE)), c("white", 'purple'))
 
-pdf('/g/scb/zeller/karcher/tmp/test.pdf', width = 12, height = 10)
+#pdf('/g/scb/zeller/karcher/tmp/test.pdf', width = 12, height = 10)
 heatmapObjectLong <- Heatmap(
   as.matrix(t(basee)),
   # cluster_rows = hc1,
@@ -611,8 +611,8 @@ heatmapObjectLong <- Heatmap(
       }
     }
   )
-heatmapObjectLong
-dev.off()
+# heatmapObjectLong
+# dev.off()
 
 layout <- "
 AAAAAAAAAAAAAAAHH

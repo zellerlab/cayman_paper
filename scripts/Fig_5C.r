@@ -6,7 +6,7 @@ library(readxl)
 
 
 #crc_assoc_motus <- readRDS(here('data', 'Nic_taxonomy_CRC.RDS')) %>%
-crc_assoc_motus <- read_csv(here('data', 'taxonomy_siamcat_CRC.csv')) %>%
+crc_assoc_motus <- read_csv(here('data', 'Intermediate_Files', 'taxonomy_siamcat_CRC.csv')) %>%
 as_tibble() %>%
 filter(fc > 0) %>%
 filter(p.adj < 0.01) %>% arrange(desc(fc)) %>%
@@ -17,12 +17,12 @@ rename(mOTU_ID = mOTU_nr)
 
 # Load cazy annotations
 #cazyAnnots <- read_tsv(here('data', "20230609_glycan_annotations_cleaned_Nic.tsv"))
-completed_substrate_annotations <- read_xlsx(here("data", "20230607_glycan_annotations_cleaned.xlsx"))
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned
 
 #cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df_Nic.tsv")) %>%
-cazy_richness <- read_tsv(here('data', "20230929_CAZyme_count_df.tsv")) %>%  
+cazy_richness <- read_tsv(here('data', "Intermediate_Files", "20240809_CAZyme_count_df.tsv")) %>%  
   rename(sampleID = Sample) %>%
   select(all_of(c("sampleID", "Unique_CAZyme_count")))
 
@@ -33,7 +33,6 @@ almeidaCAZy <- read_tsv(here('data', 'almeida_cazy_annotations.tsv'))
 tree.filtered <- read.tree(here('data', "tree.genus.ncbi.filtered.nwk"))
 
 CRC_assoc_cazymes <- data.frame(cazyme_family = c("CBM66","CBM51", "CBM62", "CBM16", "CBM70", "CBM40"))
-
 
 onlySeqsWithMultipleDifferentFamilies <- almeidaCAZy %>%
   group_by(sequenceID, genome) %>%

@@ -4,7 +4,7 @@ import numpy as np
 import math
 from Bio import SeqIO
 
-outputfolderbase = '/g/scb/zeller/karcher/cazy_gut_microbiome/data/'
+outputfolderbase = '/g/scb/zeller/karcher/cayman_paper/data/'
 os.makedirs(outputfolderbase, exist_ok = True)
 
 data = pd.read_csv('../../data/almeida_cazy_annotations.tsv', sep = "\t")

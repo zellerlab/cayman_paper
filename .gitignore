@@ -1,3 +1,7 @@
 data/almeida_cazy_annotations.tsv
 data/2024_08_12_w_nw_profiles.tsv
 data/almeida_coding_sequences_by_genus/*
+data/almeida_cazy_info_by_genus/*
+figures/revisions/*
+data/genome_level_cazy_abundances.tsv
+data/motus_level_mean_cazy_abundances.tsv

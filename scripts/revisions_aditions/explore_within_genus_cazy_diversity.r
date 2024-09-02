@@ -6,6 +6,8 @@ library(ComplexHeatmap)
 
 pseudocount <- 1
 
+# Run from conda activate /g/scb/zeller/fspringe/Software/miniconda/envs/r_env_4.3.1
+
 completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations/", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily, ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned %>%
@@ -34,6 +36,219 @@ motus_level_agg <- read_tsv(here("data/motus_level_mean_cazy_abundances.tsv")) %
 genome_level <- read_tsv(here("data/genome_level_cazy_abundances.tsv")) %>%
     mutate(mOTU_ID = str_split_fixed(mOTU_ID, "_", n = 5)[, 4])
 
+set.seed(1123)
+family_variance_within_motus <- genome_level %>%
+    group_by(mOTU_ID) %>%
+    slice_sample(n = 50) %>%
+    ungroup() %>%
+    filter(!is.na(Genus)) %>%
+    select(-c(
+        Kingdom,
+        Phylum,
+        Class,
+        Order
+    )) %>%
+    pivot_longer(
+        -c(
+            genome,
+            mOTU_ID,
+            Family,
+            Genus,
+            Species
+        ),
+    ) %>%
+    rename(
+        cazy_family = name,
+        copy_number = value
+    ) %>%
+    mutate(present = ifelse(copy_number > 0,  1, 0)) %>%
+    group_by(mOTU_ID, Family, Genus, Species, cazy_family) %>%
+    summarize(
+        num_genomes = n(),
+        prevalence = mean(present),
+        var = var(copy_number),
+        cov = sd(copy_number) / mean(copy_number)) %>%
+    filter(num_genomes > 10)
+
+ge <- "Ruminococcus"
+now <- family_variance_within_motus %>%
+    filter(cazy_family != "GH2") %>%
+    group_by(cazy_family) %>%
+    filter(str_detect(Genus, ge)) %>%
+    group_by(cazy_family) %>%
+    filter(any(prevalence > 0.2)) %>% 
+    select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
+    mutate(log10_variance = log10(var)) %>%
+    mutate(log10_cov = log10(cov)) %>%
+    ungroup() %>%
+    mutate(log10_cov = ifelse(is.na(log10_cov) | log10_cov == -Inf, min(log10_cov[log10_cov != -Inf], na.rm = T), log10_cov)) %>%
+    pivot_longer(c(prevalence, log10_cov), names_to = "metric", values_to = "value") %>%
+    identity() %>%
+    mutate(metric = factor(metric, levels = c("prevalence", "log10_cov"))) %>%
+    mutate(frac = 0.5) %>%
+    inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
+    mutate(Species = str_replace(Species, "[0-9]+ ", "")) %>%
+    mutate(Species = str_replace(Species, "NA ", "")) %>%
+    mutate(Species = map_chr(Species, \(x) {
+        xx <- str_split(x, " ")[[1]][1:2]
+        return(str_c(xx, collapse = " "))
+    }))
+
+unit_of_interest <- "mOTU_ID"
+column_name <- "Species"
+base_names <- now[[unit_of_interest]]
+column_info_to_add <- now[[column_name]]
+column_info_to_add <- str_replace_all(column_info_to_add, "\\[", "")
+column_info_to_add <- str_replace_all(column_info_to_add, "\\]", "")
+first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
+first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
+column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
+base_names <- str_c(column_info_to_add, " [", base_names, "]")
+now[[unit_of_interest]] <- base_names
+
+tmp <- now %>% 
+    filter(metric == 'prevalence') %>%
+    pivot_wider(id_cols = mOTU_ID, names_from = cazy_family, values_from = value) %>% 
+    #select(-mOTU_ID) %>% 
+    column_to_rownames("mOTU_ID") %>%
+    as.matrix()
+hclust_o_rows <- hclust(
+    tmp %>%
+    dist())
+hclust_o_cols <- hclust(
+    tmp %>%
+    t() %>% 
+    dist())
+now <- now %>%
+    mutate(
+        mOTU_ID = factor(mOTU_ID, levels = hclust_o_rows$labels[hclust_o_rows$order])) %>%
+    mutate(
+        cazy_family = factor(cazy_family, levels = hclust_o_cols$labels[hclust_o_cols$order]))
+w_tile <- 0.9
+h_tile <- 0.9
+
+heatmap_plot <- ggplot(now) +
+  geom_split_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+  scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey") +
+  ggnewscale::new_scale_fill()+
+  geom_split_tile(data = now[now$metric=="log10_cov", ] %>% mutate(log10_cov = value), aes(x = cazy_family, y = mOTU_ID, fill = log10_cov, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+  scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey") +
+  #scale_split(guide = guide_legend(override.aes = list(fill=c("#FFDAB9","#ADD8E6")))) +
+  #theme_paper+
+  theme_presentation() +
+  coord_fixed() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1,size = 8,face = "bold.italic"),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_text(size = 8)
+    )+
+  #ggtitle("MSI Tumors - HMR-seq vs TCGA WXS")+
+  #labs(caption = "All associations with q>0.05 of MMR associated hallmark pathways and tumor enriched genera are shown.")+
+  NULL
+top_annot <- cazyAnnots %>%
+    filter(GAG == "Yes" | Mucin == "Yes") %>%
+    select(Subfamily, GAG, Mucin) %>%
+    as_tibble()  %>%
+    inner_join(data.frame(Subfamily = levels(now$cazy_family))) %>%
+    mutate(Subfamily = factor(Subfamily, levels = hclust_o_cols$labels[hclust_o_cols$order])) %>%
+    rename(cazy_family = Subfamily) %>%
+    pivot_longer(-cazy_family, names_to = "annotation", values_to = "value") %>%
+    ggplot(aes(x = cazy_family, y = annotation, value = value)) +
+    theme_presentation() + 
+    geom_tile(aes(fill = value), color = "white") +
+    scale_fill_manual(values = c("white", "black")) + 
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+ggsave(plot = heatmap_plot + ggtitle(str_c(ge, " (coeff. of variation)")) , filename = "/g/scb2/zeller/karcher/tmp/test.pdf", width = 10, height = 5)
+
+now <- family_variance_within_motus %>%
+    group_by(mOTU_ID, cazy_family) %>%
+    filter(any(prevalence > 0.2)) %>% 
+    group_by(cazy_family) %>%
+    select(mOTU_ID, Genus, Species, cazy_family, var, cov, prevalence) %>%
+    mutate(variance = var) %>%
+    inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
+    mutate(Genus = str_replace(Genus, "[0-9]+ ", "")) %>%
+    mutate(Species = str_replace(Species, "[0-9]+ ", "")) %>%
+    mutate(Species = str_replace(Species, "NA ", "")) %>%
+    mutate(Species = map_chr(Species, \(x) {
+        xx <- str_split(x, " ")[[1]][1:2]
+        return(str_c(xx, collapse = " "))
+    })) %>%
+    inner_join(data.frame(Genus = c(
+        "Akkermansia",
+        "Bacteroides",
+        "Barnesiella",
+        "Coprobacter",
+        "Eisenbergiella",
+        "Hungatella",
+        "Parabacteroides",
+        "Paraprevotella"
+    ))) 
+unit_of_interest <- "mOTU_ID"
+column_name <- "Species"
+base_names <- now[[unit_of_interest]]
+column_info_to_add <- now[[column_name]]
+column_info_to_add <- str_replace_all(column_info_to_add, "\\[", "")
+column_info_to_add <- str_replace_all(column_info_to_add, "\\]", "")
+first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
+first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
+column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
+base_names <- str_c(column_info_to_add, " [", base_names, "]")
+now[[unit_of_interest]] <- base_names
+a <- c(
+        "GH2",
+        "GH92",
+        "GH20",
+        "GH31",
+        "GH29",
+        "GH95",
+        "GH35",
+        "GH33",
+        "GH42",
+        "GH130",
+        "GH18",
+        "GH109",
+        "GH73",
+        "GH84",
+        "GH89",
+        "GH123",
+        "GH85",
+        "GH112",
+        "GH108"
+        )
+library(ggrepel)
+dat <- now %>%
+    filter(prevalence > 0.2) %>%
+    inner_join(data.frame(cazy_family = a)) %>%
+    mutate(cazy_family = factor(cazy_family, levels = a)) %>%
+    select(mOTU_ID, Genus, Species, cazy_family, cov, prevalence) %>%
+    pivot_wider(names_from = c(cazy_family), values_from = c(cov, prevalence), values_fill = 0) %>%
+    pivot_longer(-c(mOTU_ID, Genus, Species), names_to = "cazy_family", values_to = "value") %>%
+    mutate(metric = factor(str_split_fixed(cazy_family, "_", n = 3)[, 1], levels = c("cov", "prevalence"))) %>%
+    mutate(cazy_family = str_split_fixed(cazy_family, "_", n = 3)[, 2]) %>%
+    pivot_wider(names_from = metric, values_from = c(value)) %>%
+    mutate(cazy_family = factor(cazy_family, levels = a))
+names(mucin_pathway_colors) <- map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
+ggsave(
+    plot = 
+    ggplot(data = dat, aes(x = cazy_family, y = cov, color = Genus, group = Genus)) +
+    #geom_boxplot() +
+    geom_point(position = position_jitterdodge(jitter.width = 0.05, dodge.width = 0.75), alpha = 0.5) +
+    #geom_text_repel(data = dat %>% filter(cov > 1), aes(label = cazy_family), color = 'black', size = 3) +
+    theme_presentation() +
+    ylab("Coefficient of variation") +
+    scale_color_manual(values = mucin_pathway_colors) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)), filename = "/g/scb2/zeller/karcher/tmp/test.pdf", width = 12, height = 4)
+
+
+
+    
 
 ####################
 # Compute genus-wise 'average variance per family' and look at most variable genera
@@ -75,45 +290,61 @@ genome_level <- read_tsv(here("data/genome_level_cazy_abundances.tsv")) %>%
 
 
 source(here("scripts", "revisions_aditions", "explore_within_genus_cazy_diversity_utils.r"))
+# get_whole_deal_motu_level(
+#     genus_number_and_name = "1263 Ruminococcus",
+#     taxa_to_add_explicitly = c("torques", "gnavus", "obeum"), data_transformation = "zscore"
+# )
+# get_whole_deal_motu_level(
+#     genus_number_and_name = "1263 Ruminococcus",
+#     taxa_to_add_explicitly = c("torques", "gnavus", "obeum"), 
+#     transform_to_prevalence = FALSE,
+#     data_transformation = "log10"
+# )
 get_whole_deal_motu_level(
     genus_number_and_name = "1263 Ruminococcus",
-    taxa_to_add_explicitly = c("torques", "gnavus", "obeum"), data_transformation = "zscore"
+    #taxa_to_add_explicitly = c("torques", "gnavus", "obeum"), 
+    taxa_to_add_explicitly = NULL, 
+    transform_to_prevalence = TRUE,
+    data_transformation = "NONE"
 )
-get_whole_deal_motu_level(
-    genus_number_and_name = "1263 Ruminococcus",
-    taxa_to_add_explicitly = c("torques", "gnavus", "obeum"), data_transformation = "log10"
-)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "gnavus")) %>% pull(mOTU_ID),
+#     genus = "Ruminococcus",
+#     data_transformation = 'zscore',
+#     families_of_interest = NULL)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "gnavus")) %>% pull(mOTU_ID),
+#     genus = "Ruminococcus",
+#     data_transformation = 'log10',
+#     transform_to_prevalence = FALSE,
+#     families_of_interest = NULL)
 get_whole_deal_genome_level(
     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "gnavus")) %>% pull(mOTU_ID),
     genus = "Ruminococcus",
-    data_transformation = 'zscore',
+    data_transformation = 'NONE',
+    transform_to_prevalence = TRUE,
     families_of_interest = NULL)
-get_whole_deal_genome_level(
-    taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "gnavus")) %>% pull(mOTU_ID),
-    genus = "Ruminococcus",
-    data_transformation = 'log10',
-    families_of_interest = NULL)
-get_whole_deal_genome_level(
-    taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "torques")) %>% pull(mOTU_ID),
-    genus = "Ruminococcus",
-    data_transformation = 'zscore',
-    families_of_interest = NULL)
-get_whole_deal_genome_level(
-    taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "torques")) %>% pull(mOTU_ID),
-    genus = "Ruminococcus",
-    data_transformation = 'log10',
-    families_of_interest = NULL)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "torques")) %>% pull(mOTU_ID),
+#     genus = "Ruminococcus",
+#     data_transformation = 'zscore',
+#     families_of_interest = NULL)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "torques")) %>% pull(mOTU_ID),
+#     genus = "Ruminococcus",
+#     data_transformation = 'log10',
+#     families_of_interest = NULL)
 ## We only have one species of Eisenbergiella, so we can't really do much here...
 # get_whole_deal_motu_level(
 #     genus_number_and_name = "1432051 Eisenbergiella",
 #     taxa_to_add_explicitly = NULL
 # )
 source(here("scripts", "revisions_aditions", "explore_within_genus_cazy_diversity_utils.r"))
-get_whole_deal_genome_level(
-    taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Eisenbergiella")) %>% pull(mOTU_ID),
-    genus = "Eisenbergiella",
-    data_transformation = 'zscore',
-    families_of_interest = NULL)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Eisenbergiella")) %>% pull(mOTU_ID),
+#     genus = "Eisenbergiella",
+#     data_transformation = 'zscore',
+#     families_of_interest = NULL)
 get_whole_deal_genome_level(
     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Eisenbergiella")) %>% pull(mOTU_ID),
     genus = "Eisenbergiella",
@@ -124,20 +355,20 @@ get_whole_deal_genome_level(
 #     genus_number_and_name = "1432051 Eisenbergiella",
 #     taxa_to_add_explicitly = NULL
 # )
-get_whole_deal_genome_level(
-    taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Hungatella")) %>% pull(mOTU_ID),
-    genus = "Hungatella",
-    data_transformation = 'zscore',
-    families_of_interest = NULL)
+# get_whole_deal_genome_level(
+#     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Hungatella")) %>% pull(mOTU_ID),
+#     genus = "Hungatella",
+#     data_transformation = 'zscore',
+#     families_of_interest = NULL)
 get_whole_deal_genome_level(
     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Hungatella")) %>% pull(mOTU_ID),
     genus = "Hungatella",
     data_transformation = 'log10',
     families_of_interest = NULL)
-get_whole_deal_motu_level(
-    genus_number_and_name = "816 Bacteroides",
-    data_transformation = 'zscore'
-)
+# get_whole_deal_motu_level(
+#     genus_number_and_name = "816 Bacteroides",
+#     data_transformation = 'zscore'
+# )
 get_whole_deal_motu_level(
     genus_number_and_name = "816 Bacteroides",
     data_transformation = 'log10'

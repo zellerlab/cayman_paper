@@ -8,6 +8,94 @@ save_heatmap <- function(o, path, dpi = 300, width = 8, height = 8) {
 #     browser()
 # }
 
+
+library(tidyverse)
+
+
+draw_key_split_tile <- function(data, params, size) {
+  
+  data$width <- data$width %||% params$width %||% 1
+  data$height <- data$height %||% params$height %||% 1
+  data$frac<- data$frac %||% params$frac %||% 0.5
+  data$width[is.na(data$width)] <- 1
+  data$height[is.na(data$height)] <- 1
+  data$frac[is.na(data$frac)] <- 0.5
+  if (isTRUE(data$split)) {
+    x <- c(0, 1, 0)
+    y <- c(0, 1, 1)
+  } else {
+    x <- c(0, 1, 1)
+    y <- c(0, 1, 0)
+  }
+  x <- 0.5 + (x-0.5) * data$width
+  y <- 0.5 + (y-0.5) * data$height
+  
+  grid::polygonGrob(
+    x = x,
+    y = y,
+    default.units = "npc",
+    gp = grid::gpar(
+      col = data$colour,
+      fill = alpha(data$fill, data$alpha)
+    )
+  )
+}
+geom_split_tile <- function(mapping = NULL, data = NULL,
+                            stat = "identity", position = "identity",
+                            ...,
+                            linejoin = "mitre",
+                            na.rm = FALSE,
+                            show.legend = NA,
+                            inherit.aes = TRUE) {
+  layer(
+    data = data,
+    mapping = mapping,
+    stat = stat,
+    geom = GeomSplitTile,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = rlang:::list2(
+      linejoin = linejoin,
+      na.rm = na.rm,
+      ...
+    )
+  )
+}
+GeomSplitTile <- ggproto(
+  "GeomSplitTile", GeomPolygon,
+  extra_params = c("na.rm"),
+  
+  setup_data = function(data, params) {
+    data$width <- data$width %||% params$width %||% resolution(data$x, FALSE)
+    data$height <- data$height %||% params$height %||% resolution(data$y, FALSE)
+    data$frac<- data$frac %||% params$frac %||% 0.5
+    data$split <- as.factor(data$split %||% params$split %||% FALSE)
+    
+    K = 5
+    n <- nrow(data)
+    z <- pmin(data$frac, 0.5)*2
+    zz <- pmin(1-data$frac, 0.5)*2
+    
+    new_data <- data.frame(
+      x = rep(data$x, each=K) + rep(3-as.integer(data$split)*2, each=K) * as.vector(rbind(-1,  1, 1, zz, -z)) * rep(data$width / 2, each=K),
+      y = rep(data$y, each=K) + rep(3-as.integer(data$split)*2, each=K) * as.vector(rbind(-1, -1, 1, z, -zz)) * rep(data$height / 2, each=K),
+      group = rep(seq_len(n), each=K)
+    )
+    new_data <- cbind(new_data, data[rep(seq_len(n), each = K), setdiff(colnames(data), c("x", "y", "group")), drop = FALSE])
+    new_data
+  },
+  
+  default_aes = aes(fill = "grey20", colour = NA, linewidth = 0.1, linetype = 1,
+                    alpha = NA, width = NA, height = NA, frac =0.5),
+  
+  required_aes = c("x", "y", "split"),
+  
+  draw_key = draw_key_split_tile
+)
+scale_split <- function(..., scale_name="scale_direction", palette = function(n) if(n>2) error(paste0(scale_name, " can handle at most 2 levels")) else c(FALSE, TRUE)) discrete_scale(aesthetics = "split", scale_name=scale_name, palette = palette, ... )
+
+
 get_base_col_name_boolean <- function(base_col_names) {
     return((!str_detect(base_col_names, "^CE") &
         !str_detect(base_col_names, "^CBM") &
@@ -22,6 +110,7 @@ get_base_col_name_boolean <- function(base_col_names) {
 get_whole_deal_motu_level <- function(
     genus_number_and_name,
     data_transformation,
+    transform_to_prevalence,
     taxa_to_add_explicitly = NULL) {
     spli <- str_split(genus_number_and_name, " ")[[1]]
     stopifnot(length(spli) == 2)
@@ -59,6 +148,7 @@ get_whole_deal_motu_level <- function(
         taxon_of_interest = c(genus_number_and_name),
         level_of_interest = "Genus",
         unit_of_interest = 'mOTU_ID',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = NULL,
         # taxa_to_add_explicitly = list(
@@ -69,10 +159,11 @@ get_whole_deal_motu_level <- function(
             "log10_#_genomes",
             # str_c("mean_dist_", data_transformation),
             # str_c("var_", data_transformation),
-            "mean_dist",
-            "var",
-            "sum_copyn",
-            "sum_uniq_f",
+            #"mean_dist",
+            #"var",
+            #"sum_copyn",
+            #"sum_uniq_f",
+            "frac_families",
             # "sum_unique_cazyme_families",
             # "mean_dist_to_other_motus",
             # "variance_cazyme_z_scores",
@@ -92,6 +183,7 @@ get_whole_deal_motu_level <- function(
         taxon_of_interest = c(genus_number_and_name),
         level_of_interest = "Genus",
         unit_of_interest = 'mOTU_ID',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes") %>% pull(Subfamily) %>% unique(),
         # taxa_to_add_explicitly = list(
@@ -102,10 +194,11 @@ get_whole_deal_motu_level <- function(
             "log10_#_genomes",
             # str_c("mean_dist_", data_transformation),
             # str_c("var_", data_transformation),
-            "mean_dist",
-            "var",
-            "sum_copyn",
-            "sum_uniq_f",
+            #"mean_dist",
+            #"var",
+            #"sum_copyn",
+            #"sum_uniq_f",
+            "frac_families",
             # "sum_unique_cazyme_families",
             # "mean_dist_to_other_motus",
             # "variance_cazyme_z_scores",
@@ -125,6 +218,7 @@ get_whole_deal_motu_level <- function(
         taxon_of_interest = c(genus_number_and_name),
         level_of_interest = "Genus",
         unit_of_interest = 'mOTU_ID',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = c("GH95", "GH29"),
         # taxa_to_add_explicitly = list(
@@ -135,10 +229,11 @@ get_whole_deal_motu_level <- function(
             "log10_#_genomes",
             # str_c("mean_dist_", data_transformation),
             # str_c("var_", data_transformation),
-            "mean_dist",
-            "var",
-            "sum_copyn",
-            "sum_uniq_f",
+            #"mean_dist",
+            #"var",
+            #"sum_copyn",
+            #"sum_uniq_f",
+            "frac_families",
             # "sum_unique_cazyme_families",
             # "mean_dist_to_other_motus",
             # "variance_cazyme_z_scores",
@@ -158,6 +253,7 @@ get_whole_deal_motu_level <- function(
         taxon_of_interest = c(genus_number_and_name),
         level_of_interest = "Genus",
         unit_of_interest = 'mOTU_ID',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = 'all_families',
         # taxa_to_add_explicitly = list(
@@ -168,10 +264,11 @@ get_whole_deal_motu_level <- function(
             "log10_#_genomes",
             # str_c("mean_dist_", data_transformation),
             # str_c("var_", data_transformation),
-            "mean_dist",
-            "var",
-            "sum_copyn",
-            "sum_uniq_f",
+            #"mean_dist",
+            #"var",
+            #"sum_copyn",
+            #"sum_uniq_f",
+            "frac_families",
             # "sum_unique_cazyme_families",
             # "mean_dist_to_other_motus",
             # "variance_cazyme_z_scores",
@@ -190,12 +287,14 @@ get_whole_deal_genome_level <- function(
     taxon_of_interest,
     genus,
     data_transformation,
+    transform_to_prevalence,
     families_of_interest = NULL) {
     pheatmap_object <- get_heatmap(
         data = genome_level,
         taxon_of_interest = taxon_of_interest,
         level_of_interest = "mOTU_ID",
         unit_of_interest = 'genome',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = families_of_interest,
         column_annotation_names = c(
@@ -215,6 +314,7 @@ get_whole_deal_genome_level <- function(
         taxon_of_interest = taxon_of_interest,
         level_of_interest = "mOTU_ID",
         unit_of_interest = 'genome',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes") %>% pull(Subfamily) %>% unique(),
         column_annotation_names = c(
@@ -234,6 +334,7 @@ get_whole_deal_genome_level <- function(
         taxon_of_interest = taxon_of_interest,
         level_of_interest = "mOTU_ID",
         unit_of_interest = 'genome',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = c("GH95", "GH29"),
         column_annotation_names = c(
@@ -253,6 +354,7 @@ get_whole_deal_genome_level <- function(
         taxon_of_interest = taxon_of_interest,
         level_of_interest = "mOTU_ID",
         unit_of_interest = 'genome',
+        transform_to_prevalence = transform_to_prevalence,
         data_transformation = data_transformation,
         families_of_interest = 'all_families',
         column_annotation_names = c(
@@ -276,6 +378,7 @@ get_heatmap <- function(
     families_of_interest = NULL,
     taxa_to_add_explicitly = NULL,
     data_transformation = NULL,
+    transform_to_prevalence = transform_to_prevalence,
     info_to_add = NULL,
     column_annotation_names = NULL
     ) {
@@ -367,21 +470,33 @@ get_heatmap <- function(
 
         } else if (data_transformation == "log10") {
             data <- log10(data + pseudocount)
+        } else if (data_transformation == "NONE") {
+            data <- data
         } else {
             print("Unknown data transformation, exiting function")
             return()
         }
     }
 
+    data <- data[, apply(data, 2, \(x) mean(x > 0) > 0.1)]
+    if (transform_to_prevalence) {
+        if (data_transformation != "NONE") {
+            print(str_to_upper("Cannot transform data to prevalence if data is already transformed, exiting"))
+            return()
+        }
+        print("Transforming data to prevalence...")
+        data[data >= 1] <- 1
+    }
+
     data <- data %>% as.data.frame()
     data_metrics <- data.frame(matrix(ncol = 0, nrow = dim(data)[1]))
-    data_metrics$sum_copyn <- apply(data_pre_trans, 1, \(x) sum(x))
-    data_metrics$sum_uniq_f <- apply(data_pre_trans, 1, \(x) sum(x > 0))
-    data_metrics$var <- apply(data, 1, var)
+    data_metrics$frac_families <- apply(data, 1, \(x) mean(x>0))
+    #data_metrics$sum_uniq_f <- apply(data_pre_trans, 1, \(x) sum(x > 0))
+    # data_metrics$var <- apply(data, 1, var)
     # data_metrics$mean_dist <- apply(as.matrix(dist(data, method = "euclidean")), 1, mean, na.rm = TRUE)
-    dists <- as.matrix(dist(data, method = "euclidean"))
-    diag(dists) <- NA
-    data_metrics$mean_dist <- apply(dists, 1, mean, na.rm = TRUE)
+    #dists <- as.matrix(dist(data, method = "euclidean"))
+    #diag(dists) <- NA
+    #data_metrics$mean_dist <- apply(dists, 1, mean, na.rm = TRUE)
     data_metrics$`log10_#_genomes` <- data_all$`log10_#_genomes`
     # data_metrics$mOTU_ID <- data_all$mOTU_ID
     data_metrics$Family <- data_all$Family
@@ -438,9 +553,14 @@ get_heatmap <- function(
         Mucin = c("No" = "grey", "Yes" = "black", "NA" = "white")
     ))
     library(circlize)
-    testttttt <- map(row_annotation, \(x) {
+    testttttt <- map2(row_annotation, colnames(row_annotation), \(x, na) {
         if (is.numeric(x)) {
-            colorRamp2(c(min(x, na.rm = TRUE), max(x, na.rm = TRUE)), c('white', 'black'))
+            if (na == "frac_families") {
+                colorRamp2(c(0, 1), c('white', 'black'))
+            } else {
+                colorRamp2(c(min(x, na.rm = TRUE), max(x, na.rm = TRUE)), c('white', 'black'))
+            }
+            
         } else {
             NULL
         }

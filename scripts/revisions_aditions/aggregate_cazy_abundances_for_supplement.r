@@ -1,7 +1,7 @@
 library(tidyverse)
 library(here)
 test_run <- FALSE
-reload_data <- FALSE
+reload_data <- TRUE
 if (reload_data) {
     cazy_all <- read_tsv('/g/scb/zeller/karcher/cayman_paper/data/almeida_cazy_annotations.tsv')
 }
@@ -10,7 +10,7 @@ if (reload_data) {
 motus_level_agg <- cazy_all %>%
     {
         if (test_run) {
-            (.) %>% head(500000)
+            (.) %>% head(5000)
         } else {
             (.)
         }
@@ -26,8 +26,10 @@ motus_level_agg <- cazy_all %>%
         Genus,
         Species,
         cazy_family) %>%
-    tally() %>%
-    rename(copy_number = n) %>%
+    summarize(
+        copy_number = n()
+        # copy_number = length(unique(sequenceID))
+    ) %>%
     group_by(
         mOTU_ID,
         Kingdom,

@@ -83,6 +83,7 @@ genome_level <- cazy_all %>%
     } %>%
     group_by(
         Genome_type,
+        Length,
         genome,
         mOTU_ID,
         Kingdom,

@@ -3,6 +3,7 @@ library(here)
 library(readxl)
 # library(pheatmap)
 library(ComplexHeatmap)
+library(ggembl)
 
 pseudocount <- 1
 
@@ -51,6 +52,8 @@ family_variance_within_motus <- genome_level %>%
     pivot_longer(
         -c(
             genome,
+            Genome_type,
+            Length,
             mOTU_ID,
             Family,
             Genus,
@@ -66,11 +69,13 @@ family_variance_within_motus <- genome_level %>%
     summarize(
         num_genomes = n(),
         prevalence = mean(present),
-        var = var(copy_number),
-        cov = sd(copy_number) / mean(copy_number)) %>%
+        # var = var(copy_number),
+        # cov = sd(copy_number) / mean(copy_number)) %>%
+        var = var(present),
+        cov = sd(present) / mean(present)) %>%        
     filter(num_genomes > 10)
 
-ge <- "Ruminococcus"
+ge <- "Bacteroides"
 now <- family_variance_within_motus %>%
     filter(cazy_family != "GH2") %>%
     group_by(cazy_family) %>%
@@ -78,13 +83,13 @@ now <- family_variance_within_motus %>%
     group_by(cazy_family) %>%
     filter(any(prevalence > 0.2)) %>% 
     select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
-    mutate(log10_variance = log10(var)) %>%
-    mutate(log10_cov = log10(cov)) %>%
-    ungroup() %>%
-    mutate(log10_cov = ifelse(is.na(log10_cov) | log10_cov == -Inf, min(log10_cov[log10_cov != -Inf], na.rm = T), log10_cov)) %>%
-    pivot_longer(c(prevalence, log10_cov), names_to = "metric", values_to = "value") %>%
+    # mutate(log10_variance = log10(var)) %>%
+    # mutate(log10_cov = log10(cov)) %>%
+    # ungroup() %>%
+    # mutate(log10_cov = ifelse(is.na(log10_cov) | log10_cov == -Inf, min(log10_cov[log10_cov != -Inf], na.rm = T), log10_cov)) %>%
+    pivot_longer(c(prevalence, var), names_to = "metric", values_to = "value") %>%
     identity() %>%
-    mutate(metric = factor(metric, levels = c("prevalence", "log10_cov"))) %>%
+    mutate(metric = factor(metric, levels = c("prevalence", "var"))) %>%
     mutate(frac = 0.5) %>%
     inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
     mutate(Species = str_replace(Species, "[0-9]+ ", "")) %>%
@@ -131,7 +136,7 @@ heatmap_plot <- ggplot(now) +
   geom_split_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
   scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey") +
   ggnewscale::new_scale_fill()+
-  geom_split_tile(data = now[now$metric=="log10_cov", ] %>% mutate(log10_cov = value), aes(x = cazy_family, y = mOTU_ID, fill = log10_cov, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+  geom_split_tile(data = now[now$metric=="var", ] %>% mutate(variance = value), aes(x = cazy_family, y = mOTU_ID, fill = variance, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
   scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey") +
   #scale_split(guide = guide_legend(override.aes = list(fill=c("#FFDAB9","#ADD8E6")))) +
   #theme_paper+
@@ -164,7 +169,8 @@ top_annot <- cazyAnnots %>%
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         axis.title.y = element_blank()) +
-ggsave(plot = heatmap_plot + ggtitle(str_c(ge, " (coeff. of variation)")) , filename = "/g/scb2/zeller/karcher/tmp/test.pdf", width = 10, height = 5)
+ggsave(plot = heatmap_plot + ggtitle(str_c(ge, "")) , filename = here('figures', "revisions", "Species_level_split_heatmap.pdf"), width = 10, height = 5)
+# the ggsave command will throw an error, but just ignore it. it's fine.
 
 now <- family_variance_within_motus %>%
     group_by(mOTU_ID, cazy_family) %>%
@@ -227,24 +233,31 @@ dat <- now %>%
     filter(prevalence > 0.2) %>%
     inner_join(data.frame(cazy_family = a)) %>%
     mutate(cazy_family = factor(cazy_family, levels = a)) %>%
-    select(mOTU_ID, Genus, Species, cazy_family, cov, prevalence) %>%
-    pivot_wider(names_from = c(cazy_family), values_from = c(cov, prevalence), values_fill = 0) %>%
+    select(mOTU_ID, Genus, Species, cazy_family, var, prevalence) %>%
+    pivot_wider(names_from = c(cazy_family), values_from = c(var, prevalence), values_fill = 0) %>%
     pivot_longer(-c(mOTU_ID, Genus, Species), names_to = "cazy_family", values_to = "value") %>%
-    mutate(metric = factor(str_split_fixed(cazy_family, "_", n = 3)[, 1], levels = c("cov", "prevalence"))) %>%
+    mutate(metric = factor(str_split_fixed(cazy_family, "_", n = 3)[, 1], levels = c("var", "prevalence"))) %>%
     mutate(cazy_family = str_split_fixed(cazy_family, "_", n = 3)[, 2]) %>%
     pivot_wider(names_from = metric, values_from = c(value)) %>%
     mutate(cazy_family = factor(cazy_family, levels = a))
 names(mucin_pathway_colors) <- map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
+po_jd <- position_jitterdodge(jitter.width = 0.05, dodge.width = 0.75)
 ggsave(
     plot = 
-    ggplot(data = dat, aes(x = cazy_family, y = cov, color = Genus, group = Genus)) +
+    ggplot(data = dat, aes(x = cazy_family, y = var, color = Genus, group = Genus)) +
     #geom_boxplot() +
-    geom_point(position = position_jitterdodge(jitter.width = 0.05, dodge.width = 0.75), alpha = 0.5) +
-    #geom_text_repel(data = dat %>% filter(cov > 1), aes(label = cazy_family), color = 'black', size = 3) +
+    geom_point(position = po_jd, alpha = 0.5) +
+    geom_text_repel(
+        data = dat %>%
+         filter(var > 0.15) %>%
+         mutate(sp = map_chr(mOTU_ID, \(x) {
+            tmp <- str_split(x, " ")[[1]][1:2]
+            return(str_c(tmp, collapse = " "))
+         })), aes(label = sp, color = Genus), size = 3, position = po_jd) +
     theme_presentation() +
-    ylab("Coefficient of variation") +
+    ylab("Variance (presence/absence)") +
     scale_color_manual(values = mucin_pathway_colors) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)), filename = "/g/scb2/zeller/karcher/tmp/test.pdf", width = 12, height = 4)
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)), filename = here('figures', "revisions", "variance_beeswarm.pdf"), width = 12, height = 4)
 
 
 
@@ -378,3 +391,59 @@ get_whole_deal_motu_level(
 #     taxon_of_interest = motus_level_agg %>% filter(str_detect(Species, "Bacteroides")) %>% filter(number_genomes > 500) %>% pull(mOTU_ID),
 #     genus = "Bacteroides",
 #     families_of_interest = NULL)
+
+set.seed(42)
+almeida_paths <- read_tsv('/g/scb2/zeller/SHARED/DATA/assembled_genomes/Almeida_2020_combined_set/find.prokka.whole.path', col_names = F) %>% 
+    mutate(genome = str_split_fixed(X1, "/", n= 15)[, 13]) %>% 
+    mutate(genome = str_replace(genome, ".faa", "")) %>%
+    rename(genome = genome, faa_path = X1)
+# sample_conversion <- read_tsv('/g/scb/bork/fullam/proGenomes/freeze13/sample_conversion.tsv', col_names = F)
+# pg3_represenatives <- read_tsv('/g/scb/bork/fullam/proGenomes/freeze13/specI_clusters/final_cluster_names/representatives.tsv', col_names = F) %>%
+#     rename(pg3_gca = X2, genome = X3) %>%
+#     select(pg3_gca, genome)
+# pg3_paths <- read_tsv('/g/scb/bork/fullam/proGenomes/freeze13/all_files_metadata.tsv_v0') %>%
+#     rename(pg3_gca = sample_id, pg3_path = genbank_path) %>%
+#     select(pg3_gca, pg3_path)
+representative_genomes_by_motu <- genome_level %>% 
+    filter(mOTU_ID != "") %>% 
+    group_by(mOTU_ID) %>% 
+    filter(n() >= 50) %>%
+    nest() %>%
+    mutate(contains_isolate_genome = map_lgl(data, \(x) {
+        if (any(x$Genome_type == "Isolate")) {
+            return(TRUE)
+        } else {
+            return(FALSE)
+        }
+    })) %>%
+    mutate(almeida_genome = map2(data, contains_isolate_genome, \(x, cont) {
+        if (cont) {
+            return(x %>%
+                filter(Genome_type == "Isolate") %>%
+                sample_n(1) %>%
+                select(genome, Genome_type))
+        } else {
+            me <- median(x$Length)
+            return(x %>% 
+                mutate(diff = abs(Length - me)) %>%
+                arrange(diff) %>%
+                head(1) %>%
+                select(genome, Genome_type))
+        }
+
+    })) %>%
+    select(-data) %>%
+    unnest()
+
+representative_genomes_by_motu %>%
+    left_join(almeida_paths) %>%
+    ungroup() %>%
+    select(-c(mOTU_ID, Genome_type, )) %>%
+    inner_join(genome_level, by = 'genome') %>%
+    write_tsv(here('data', 'paths_to_276_rep_genomes.txt'))
+
+##############################################################
+# Check this here for the preliminary  final list of genomes 
+##############################################################
+
+# now get paths, whereever appropriate

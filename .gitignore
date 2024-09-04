@@ -6,3 +6,5 @@ figures/revisions/*
 data/genome_level_cazy_abundances.tsv
 data/motus_level_mean_cazy_abundances.tsv
 data/paths_to_276_rep_genomes.txt
+data/pg3_2_motu_tax_v2
+data/paths_to_276_rep_genomes_SAFETY.txt

@@ -30,7 +30,7 @@ uniqueFamiliesRaw <- uniqueFamiliesRaw %>% mutate(presentFamilies = map(data, fu
     pull(cazy_family))
 }))
 
-cazyFamilyPairwiseJaccards <- get_family_sharing_rate(uniqueFamiliesRaw, tree.filtered$tip.label)
+cazyFamilyPairwiseJaccards <- get_family_sharing_rate(uniqueFamiliesRaw, tree.filtered$tip.label, lev = "Species")
 cazyFamilyPairwiseJaccards <- cazyFamilyPairwiseJaccards %>%
   as.data.frame() %>%
   t() %>%

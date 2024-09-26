@@ -28,7 +28,7 @@ qq <- function(d, co, pos = 1) {
         pull({{ co }}) %>% magrittr::extract2(pos))
 }
 
-get_family_sharing_rate <- function(df, taxa){
+get_family_sharing_rate <- function(df, taxa, lev = "Genus"){
 
   jaccard <- function(a, b) {
     intersection = length(intersect(a, b))
@@ -37,21 +37,21 @@ get_family_sharing_rate <- function(df, taxa){
   }
 
   # Subset to only genera of interest.
-  df <- df[df$Genus %in% taxa, ]
+  df <- df[df[[lev]] %in% taxa, ]
 
   # count ALL FAMILIES (and then later subtract)
   FamilyNs <- table(unlist(df$presentFamilies))
 
   specificFamilies <- list()
-  for (g in unique(df$Genus)){
+  for (g in unique(df[[lev]])){
     familiesInTaxon <- df %>%
-      filter(Genus == g) %>%
+      filter(.data[[lev]] == g) %>%
       pull(presentFamilies) %>%
       magrittr::extract2(1)
     tmp <- list()
-    for (g2 in unique(df$Genus)){
+    for (g2 in unique(df[[lev]])){
       familiesInTaxon2 <- df %>%
-        filter(Genus == g2) %>%
+        filter(.data[[lev]] == g2) %>%
         pull(presentFamilies) %>%
         magrittr::extract2(1)
       # Calculate jaccard distance

@@ -11,8 +11,33 @@ library(readxl)
 library(ComplexHeatmap)
 library(ggembl)
 library(ggnewscale)
+library(patchwork)
+source(here('scripts', 'utils.r'))
 
 pseudocount <- 1
+
+# Mucin families shown in (old) Fig 2B, should now be Fig3A?
+a <- c(
+        "GH2",
+        "GH92",
+        "GH20",
+        "GH31",
+        "GH29",
+        "GH95",
+        "GH35",
+        "GH33",
+        "GH42",
+        "GH130",
+        "GH18",
+        "GH109",
+        "GH73",
+        "GH84",
+        "GH89",
+        "GH123",
+        "GH85",
+        "GH112",
+        "GH108"
+        )
 
 completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations/", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily, ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
@@ -80,111 +105,123 @@ family_variance_within_motus <- genome_level %>%
         cov = sd(present) / mean(present)) %>%        
     filter(num_genomes > 10)
 
-ge <- "Clostridium"
-now <- family_variance_within_motus %>%
-    filter(cazy_family != "GH2") %>%
-    group_by(cazy_family) %>%
-    filter(str_detect(Genus, ge)) %>%
-    group_by(cazy_family) %>%
-    filter(any(prevalence > 0.2)) %>% 
-    select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
-    # mutate(log10_variance = log10(var)) %>%
-    # mutate(log10_cov = log10(cov)) %>%
-    # ungroup() %>%
-    # mutate(log10_cov = ifelse(is.na(log10_cov) | log10_cov == -Inf, min(log10_cov[log10_cov != -Inf], na.rm = T), log10_cov)) %>%
-    pivot_longer(c(prevalence, var), names_to = "metric", values_to = "value") %>%
-    identity() %>%
-    mutate(metric = factor(metric, levels = c("prevalence", "var"))) %>%
-    mutate(frac = 0.5) %>%
-    inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
-    mutate(Species = str_replace(Species, "[0-9]+ ", "")) %>%
-    mutate(Species = str_replace(Species, "NA ", "")) %>%
-    mutate(Species = map_chr(Species, \(x) {
-        xx <- str_split(x, " ")[[1]][1:2]
-        return(str_c(xx, collapse = " "))
-    }))
+only_mucin <- TRUE
+all_plots <- list()
+for (ge in 
+    #c("Bacteroides")
+    map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
+) {
+    print(str_c("Processing ", ge, "..."))
+    now <- family_variance_within_motus %>%
+        #filter(cazy_family != "GH2") %>%
+        group_by(cazy_family) %>%
+        filter(str_detect(Genus, ge)) %>%
+        group_by(cazy_family) %>%
+        #filter(any(prevalence > 0.2)) %>% 
+        filter(mean(prevalence > 0.5) > 0.2) %>% 
+        select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
+        pivot_longer(c(prevalence, var), names_to = "metric", values_to = "value") %>%
+        identity() %>%
+        mutate(metric = factor(metric, levels = c("prevalence", "var"))) %>%
+        mutate(frac = 0.5) %>%
+        #inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
+        {
+            if (only_mucin) {
+                (.) %>% 
+                    inner_join(data.frame(cazy_family = a)) %>%
+                    mutate(cazy_family = factor(cazy_family, levels = a))
+            } else {
+                (.)
+            }
+        } %>%
+        mutate(Species = str_replace(Species, "[0-9]+ ", "")) %>%
+        mutate(Species = str_replace(Species, "NA ", "")) %>%
+        mutate(Species = map_chr(Species, \(x) {
+            xx <- str_split(x, " ")[[1]][1:2]
+            return(str_c(xx, collapse = " "))
+        })) %>%
+        mutate(Species = str_replace(Species, "species", "sp."))
 
-unit_of_interest <- "mOTU_ID"
-column_name <- "Species"
-base_names <- now[[unit_of_interest]]
-column_info_to_add <- now[[column_name]]
-column_info_to_add <- str_replace_all(column_info_to_add, "\\[", "")
-column_info_to_add <- str_replace_all(column_info_to_add, "\\]", "")
-first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
-first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
-column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
-base_names <- str_c(column_info_to_add, " [", base_names, "]")
-now[[unit_of_interest]] <- base_names
+    unit_of_interest <- "mOTU_ID"
+    column_name <- "Species"
+    base_names <- now[[unit_of_interest]]
+    column_info_to_add <- now[[column_name]]
+    column_info_to_add <- str_replace_all(column_info_to_add, "\\[", "")
+    column_info_to_add <- str_replace_all(column_info_to_add, "\\]", "")
+    first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
+    first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
+    column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
+    base_names <- str_c(column_info_to_add, " [", base_names, "]")
+    now[[unit_of_interest]] <- base_names
 
-tmp <- now %>% 
-    filter(metric == 'prevalence') %>%
-    pivot_wider(id_cols = mOTU_ID, names_from = cazy_family, values_from = value) %>% 
-    #select(-mOTU_ID) %>% 
-    column_to_rownames("mOTU_ID") %>%
-    as.matrix()
-if (dim(tmp)[1] == 1) {
-    now <- now %>%
-        mutate(
-            mOTU_ID = factor(mOTU_ID, levels = unique(mOTU_ID))) %>%
-        mutate(
-            cazy_family = factor(cazy_family, levels = unique(cazy_family)))    
-} else {
-    hclust_o_rows <- hclust(
-        tmp %>%
-        dist())
-    hclust_o_cols <- hclust(
-        tmp %>%
-        t() %>% 
-        dist())
-    now <- now %>%
-        mutate(
-            mOTU_ID = factor(mOTU_ID, levels = hclust_o_rows$labels[hclust_o_rows$order])) %>%
-        mutate(
-            cazy_family = factor(cazy_family, levels = hclust_o_cols$labels[hclust_o_cols$order]))
+    tmp <- now %>% 
+        filter(metric == 'prevalence') %>%
+        pivot_wider(id_cols = mOTU_ID, names_from = cazy_family, values_from = value) %>% 
+        #select(-mOTU_ID) %>% 
+        column_to_rownames("mOTU_ID") %>%
+        as.matrix()
+    now <- now %>% 
+        mutate(cazy_family = factor(cazy_family, levels = rev(colnames(tmp)[order(apply(tmp, 2, \(x) sum(x)))]))) %>%
+        mutate(mOTU_ID = factor(mOTU_ID, levels = rownames(tmp)[order(apply(tmp, 1, \(x) sum(x)))]))
+    w_tile <- 0.9
+    h_tile <- 0.9
 
-}
-w_tile <- 0.9
-h_tile <- 0.9
-
-heatmap_plot <- ggplot(now) +
-  geom_split_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
-  scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey") +
-  ggnewscale::new_scale_fill()+
-  geom_split_tile(data = now[now$metric=="var", ] %>% mutate(variance = value), aes(x = cazy_family, y = mOTU_ID, fill = variance, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
-  scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey") +
-  #scale_split(guide = guide_legend(override.aes = list(fill=c("#FFDAB9","#ADD8E6")))) +
-  #theme_paper+
-  theme_presentation() +
-  coord_fixed() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1,size = 8,face = "bold.italic"),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    axis.text.y = element_text(size = 8)
-    )+
-  #ggtitle("MSI Tumors - HMR-seq vs TCGA WXS")+
-  #labs(caption = "All associations with q>0.05 of MMR associated hallmark pathways and tumor enriched genera are shown.")+
-  NULL
-top_annot <- cazyAnnots %>%
-    filter(GAG == "Yes" | Mucin == "Yes") %>%
-    select(Subfamily, GAG, Mucin) %>%
-    as_tibble()  %>%
-    inner_join(data.frame(Subfamily = levels(now$cazy_family))) %>%
-    mutate(Subfamily = factor(Subfamily, levels = hclust_o_cols$labels[hclust_o_cols$order])) %>%
-    rename(cazy_family = Subfamily) %>%
-    pivot_longer(-cazy_family, names_to = "annotation", values_to = "value") %>%
-    ggplot(aes(x = cazy_family, y = annotation, value = value)) +
-    theme_presentation() + 
-    geom_tile(aes(fill = value), color = "white") +
-    scale_fill_manual(values = c("white", "black")) + 
+    heatmap_plot <- ggplot(now) +
+    geom_split_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+    scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey", limits = c(0, 1)) +
+    ggnewscale::new_scale_fill()+
+    geom_split_tile(data = now[now$metric=="var", ] %>% mutate(variance = value), aes(x = cazy_family, y = mOTU_ID, fill = variance, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+    scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey", limits = c(0, 0.5)) +
+    #scale_split(guide = guide_legend(override.aes = list(fill=c("#FFDAB9","#ADD8E6")))) +
+    #theme_paper+
+    theme_presentation() +
+    coord_fixed() +
     theme(
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
+        #axis.text.x = element_text(angle = 45, hjust = 1,size = 8,face = ""),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
         axis.title.x = element_blank(),
-        axis.title.y = element_blank()) +
-ggsave(plot = heatmap_plot + ggtitle(str_c(ge, "")) , filename = here('figures', "revisions", str_c(ge, "_split_heatmap.pdf")), width = 10, height = 5)
-# the ggsave command will throw an error, but just ignore it. it's fine.
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_text(size = 8),
+        plot.margin = unit(c(0, 0, 0, 0), "cm")
+        )+
+    scale_x_discrete(limits = a) +
+    #ggtitle("MSI Tumors - HMR-seq vs TCGA WXS")+
+    #labs(caption = "All associations with q>0.05 of MMR associated hallmark pathways and tumor enriched genera are shown.")+
+    NULL
+    # top_annot <- cazyAnnots %>%
+    #     filter(GAG == "Yes" | Mucin == "Yes") %>%
+    #     select(Subfamily, GAG, Mucin) %>%
+    #     as_tibble()  %>%
+    #     inner_join(data.frame(Subfamily = levels(now$cazy_family))) %>%
+    #     mutate(Subfamily = factor(Subfamily, levels = hclust_o_cols$labels[hclust_o_cols$order])) %>%
+    #     rename(cazy_family = Subfamily) %>%
+    #     pivot_longer(-cazy_family, names_to = "annotation", values_to = "value") %>%
+    #     ggplot(aes(x = cazy_family, y = annotation, value = value)) +
+    #     theme_presentation() + 
+    #     geom_tile(aes(fill = value), color = "white") +
+    #     scale_fill_manual(values = c("white", "black")) + 
+    #     theme(
+    #         axis.text.x = element_blank(),
+    #         axis.ticks.x = element_blank(),
+    #         axis.title.x = element_blank(),
+    #         axis.title.y = element_blank()) +
+    library(patchwork)
+    ggsave(plot = heatmap_plot, filename = here('figures', "revisions", str_c(ge, "_split_heatmap.pdf")), width = 8, height = 4)
+    all_plots[[ge]] <- heatmap_plot
+}
+all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 )], \(x) {
+    return(
+        x +
+        theme(
+            axis.text.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.title.x = element_blank()
+            )
+    )
+})
+ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect'), filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 8, height = 7.5)
+
 
 now <- family_variance_within_motus %>%
     group_by(mOTU_ID, cazy_family) %>%
@@ -221,27 +258,7 @@ first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
 column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
 base_names <- str_c(column_info_to_add, " [", base_names, "]")
 now[[unit_of_interest]] <- base_names
-a <- c(
-        "GH2",
-        "GH92",
-        "GH20",
-        "GH31",
-        "GH29",
-        "GH95",
-        "GH35",
-        "GH33",
-        "GH42",
-        "GH130",
-        "GH18",
-        "GH109",
-        "GH73",
-        "GH84",
-        "GH89",
-        "GH123",
-        "GH85",
-        "GH112",
-        "GH108"
-        )
+
 library(ggrepel)
 dat <- now %>%
     filter(prevalence > 0.2) %>%

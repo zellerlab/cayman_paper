@@ -99,6 +99,7 @@ family_variance_within_motus <- genome_level %>%
     summarize(
         num_genomes = n(),
         prevalence = mean(present),
+        mean_copy_num = mean(copy_number),
         # var = var(copy_number),
         # cov = sd(copy_number) / mean(copy_number)) %>%
         var = var(present),
@@ -119,10 +120,10 @@ for (ge in
         group_by(cazy_family) %>%
         #filter(any(prevalence > 0.2)) %>% 
         filter(mean(prevalence > 0.5) > 0.2) %>% 
-        select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
-        pivot_longer(c(prevalence, var), names_to = "metric", values_to = "value") %>%
+        select(mOTU_ID, Species, cazy_family, prevalence, mean_copy_num, var, cov) %>%
+        pivot_longer(c(prevalence, var, mean_copy_num), names_to = "metric", values_to = "value") %>%
         identity() %>%
-        mutate(metric = factor(metric, levels = c("prevalence", "var"))) %>%
+        mutate(metric = factor(metric, levels = c("prevalence", "var", 'mean_copy_num'))) %>%
         mutate(frac = 0.5) %>%
         #inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
         {

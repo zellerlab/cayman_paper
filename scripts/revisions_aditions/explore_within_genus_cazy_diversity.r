@@ -102,12 +102,17 @@ family_variance_within_motus <- genome_level %>%
         mean_copy_num = mean(copy_number),
         # var = var(copy_number),
         # cov = sd(copy_number) / mean(copy_number)) %>%
-        var = var(present),
+        var = var(copy_number),
         cov = sd(present) / mean(present)) %>%        
     filter(num_genomes > 10)
 
 only_mucin <- TRUE
 all_plots <- list()
+# maxvar <- family_variance_within_motus %>%
+#     mutate(Genus = str_split_fixed(Genus, " ", n = 3)[, 2]) %>%
+#     inner_join(data.frame(Genus = map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1]))) %>%
+#     pull(var) %>%
+#     max()
 for (ge in 
     #c("Bacteroides")
     map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
@@ -116,14 +121,15 @@ for (ge in
     now <- family_variance_within_motus %>%
         #filter(cazy_family != "GH2") %>%
         group_by(cazy_family) %>%
-        filter(str_detect(Genus, ge)) %>%
+        filter(str_detect(Genus, ge))
+    now <- now %>%
         group_by(cazy_family) %>%
         #filter(any(prevalence > 0.2)) %>% 
         filter(mean(prevalence > 0.5) > 0.2) %>% 
-        select(mOTU_ID, Species, cazy_family, prevalence, mean_copy_num, var, cov) %>%
-        pivot_longer(c(prevalence, var, mean_copy_num), names_to = "metric", values_to = "value") %>%
+        select(mOTU_ID, Species, cazy_family, mean_copy_num, var, cov) %>%
+        pivot_longer(c(var, mean_copy_num), names_to = "metric", values_to = "value") %>%
         identity() %>%
-        mutate(metric = factor(metric, levels = c("prevalence", "var", 'mean_copy_num'))) %>%
+        mutate(metric = factor(metric, levels = c("mean_copy_num", "var"))) %>%
         mutate(frac = 0.5) %>%
         #inner_join(cazyAnnots %>% filter(GAG == "Yes" | Mucin == "Yes"), by = c("cazy_family" = "Subfamily")) %>%
         {
@@ -156,7 +162,7 @@ for (ge in
     now[[unit_of_interest]] <- base_names
 
     tmp <- now %>% 
-        filter(metric == 'prevalence') %>%
+        filter(metric == 'mean_copy_num') %>%
         pivot_wider(id_cols = mOTU_ID, names_from = cazy_family, values_from = value) %>% 
         #select(-mOTU_ID) %>% 
         column_to_rownames("mOTU_ID") %>%
@@ -168,13 +174,12 @@ for (ge in
     h_tile <- 0.9
 
     heatmap_plot <- ggplot(now) +
-    geom_split_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
-    scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey", limits = c(0, 1)) +
+    geom_split_tile(data = now[now$metric=="mean_copy_num", ] %>% mutate(mean_copy_num = value), aes(x = cazy_family, y = mOTU_ID, fill = log10(mean_copy_num+1), split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+    scale_fill_gradient(low = "white",high = "#1F77B4",na.value = "lightgrey", limits = c(0, 1.6)) +
     ggnewscale::new_scale_fill()+
-    geom_split_tile(data = now[now$metric=="var", ] %>% mutate(variance = value), aes(x = cazy_family, y = mOTU_ID, fill = variance, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
-    scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey", limits = c(0, 0.5)) +
+    geom_split_tile(data = now[now$metric=="var", ] %>% mutate(variance = value) %>% mutate(variance = ifelse(variance > 15, 15, variance)), aes(x = cazy_family, y = mOTU_ID, fill = variance, split = fct_rev(metric), frac=frac),colour = "white", linewidth = 0,width = w_tile, height = h_tile) +
+    scale_fill_gradient(low = "white",high = "#FF7F0E",na.value = "lightgrey", limits = c(0, 15)) +
     #scale_split(guide = guide_legend(override.aes = list(fill=c("#FFDAB9","#ADD8E6")))) +
-    #theme_paper+
     theme_presentation() +
     coord_fixed() +
     theme(
@@ -211,6 +216,7 @@ for (ge in
     ggsave(plot = heatmap_plot, filename = here('figures', "revisions", str_c(ge, "_split_heatmap.pdf")), width = 8, height = 4)
     all_plots[[ge]] <- heatmap_plot
 }
+
 all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 )], \(x) {
     return(
         x +
@@ -221,7 +227,7 @@ all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 
             )
     )
 })
-ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect'), filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 8, height = 7.5)
+ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect'), filename = here('figures', "revisions", "mucin_split_heatmap_abundances.pdf"), width = 8, height = 7.5)
 
 
 now <- family_variance_within_motus %>%

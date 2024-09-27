@@ -5,6 +5,24 @@ library(compositions)
 library(ggrepel)
 library(circlize)
 
+
+phylum_color_map <- c("Actinobacteria" = "#F8766D", 
+"Bacteroidetes" =  "#D39200",  
+"Euryarchaeota" = "#93AA00",
+"Firmicutes" = "#00BA38",     
+"Fusobacteria" = "#00C19F",   
+"Proteobacteria" = "#00B9E3", 
+"Spirochaetes" =  "#619CFF",   
+"Tenericutes" = "#DB72FB",    
+"Verrucomicrobia" = "#FF61C3")
+
+       
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
 cazyFamilyOrder <- c("GT", "CE", "PL", "GH", "CBM")
 familyColors <- c("#47484C", #GT 
                   "#806F6F", #CE

@@ -1,13 +1,18 @@
+##############
+##############
+### ATTENTION # Run from conda activate /g/scb/zeller/fspringe/Software/miniconda/envs/r_env_4.3.1
+##############
+##############
+
 library(tidyverse)
 library(here)
 library(readxl)
 # library(pheatmap)
 library(ComplexHeatmap)
 library(ggembl)
+library(ggnewscale)
 
 pseudocount <- 1
-
-# Run from conda activate /g/scb/zeller/fspringe/Software/miniconda/envs/r_env_4.3.1
 
 completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations/", "20230607_glycan_annotations_cleaned.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily, ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
@@ -75,7 +80,7 @@ family_variance_within_motus <- genome_level %>%
         cov = sd(present) / mean(present)) %>%        
     filter(num_genomes > 10)
 
-ge <- "Bacteroides"
+ge <- "Clostridium"
 now <- family_variance_within_motus %>%
     filter(cazy_family != "GH2") %>%
     group_by(cazy_family) %>%
@@ -117,18 +122,27 @@ tmp <- now %>%
     #select(-mOTU_ID) %>% 
     column_to_rownames("mOTU_ID") %>%
     as.matrix()
-hclust_o_rows <- hclust(
-    tmp %>%
-    dist())
-hclust_o_cols <- hclust(
-    tmp %>%
-    t() %>% 
-    dist())
-now <- now %>%
-    mutate(
-        mOTU_ID = factor(mOTU_ID, levels = hclust_o_rows$labels[hclust_o_rows$order])) %>%
-    mutate(
-        cazy_family = factor(cazy_family, levels = hclust_o_cols$labels[hclust_o_cols$order]))
+if (dim(tmp)[1] == 1) {
+    now <- now %>%
+        mutate(
+            mOTU_ID = factor(mOTU_ID, levels = unique(mOTU_ID))) %>%
+        mutate(
+            cazy_family = factor(cazy_family, levels = unique(cazy_family)))    
+} else {
+    hclust_o_rows <- hclust(
+        tmp %>%
+        dist())
+    hclust_o_cols <- hclust(
+        tmp %>%
+        t() %>% 
+        dist())
+    now <- now %>%
+        mutate(
+            mOTU_ID = factor(mOTU_ID, levels = hclust_o_rows$labels[hclust_o_rows$order])) %>%
+        mutate(
+            cazy_family = factor(cazy_family, levels = hclust_o_cols$labels[hclust_o_cols$order]))
+
+}
 w_tile <- 0.9
 h_tile <- 0.9
 
@@ -169,7 +183,7 @@ top_annot <- cazyAnnots %>%
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         axis.title.y = element_blank()) +
-ggsave(plot = heatmap_plot + ggtitle(str_c(ge, "")) , filename = here('figures', "revisions", "Species_level_split_heatmap.pdf"), width = 10, height = 5)
+ggsave(plot = heatmap_plot + ggtitle(str_c(ge, "")) , filename = here('figures', "revisions", str_c(ge, "_split_heatmap.pdf")), width = 10, height = 5)
 # the ggsave command will throw an error, but just ignore it. it's fine.
 
 now <- family_variance_within_motus %>%
@@ -445,5 +459,3 @@ representative_genomes_by_motu %>%
 ##############################################################
 # Check this here for the preliminary  final list of genomes 
 ##############################################################
-
-# now get paths, whereever appropriate

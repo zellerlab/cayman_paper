@@ -17,19 +17,62 @@ get_auc_v2 <- function(x, y) {
 }
 
 df <- data.frame(
-    species = c("Hungatella hathewayi", "Hungatella hathewayi", "Hungatella hathewayi", "Eisenbergiella tayi", "Eisenbergiella tayi", "Eisenbergiella tayi", "Eisenbergiella massiliensis", "Coprobacter fastidiosus", "Coprobacter secundus", "Akkermansia muciniphila", "Pseudoflavonifractor capillosus", "Eubacterium eligens", "Roseburia intestinalis", "Roseburia inulinivorans", "Dorea formicigenerans", "Dorea longicatena"),
-    purpose = c("assayed", "assayed", "assayed", "assayed", "assayed", "assayed", "assayed", "assayed", "assayed", "pos ctrl", "neg ctrl", "neg ctrl", "neg ctrl", "neg ctrl", "neg ctrl", "neg ctrl")
+    species = c(
+        "Hungatella hathewayi", 
+        "Hungatella hathewayi", 
+        "Hungatella hathewayi", 
+        "Eisenbergiella tayi", 
+        "Eisenbergiella tayi", 
+        "Eisenbergiella tayi", 
+        "Eisenbergiella massiliensis", 
+        "Coprobacter fastidiosus", 
+        "Coprobacter secundus", 
+        "Akkermansia muciniphila", 
+        "Pseudoflavonifractor capillosus", 
+        "Eubacterium eligens", 
+        "Roseburia intestinalis", 
+        "Roseburia inulinivorans", 
+        "Dorea formicigenerans", 
+        "Dorea longicatena",
+        "Clostridioides difficile",
+        "Bacteroides uniformis",
+        "Phocaeicola vulgatus"),
+    purpose = c(
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "assayed", 
+        "pos ctrl", 
+        "neg ctrl", 
+        "neg ctrl", 
+        "neg ctrl", 
+        "neg ctrl", 
+        "neg ctrl", 
+        "neg ctrl",
+        "neg ctrl",
+        'unclear',
+        'unclear')
 ) %>%
     distinct() %>%
     mutate(col = case_when(
         purpose == "assayed" ~ "#006400",
         purpose == "pos ctrl" ~ "#00008B",
-        purpose == "neg ctrl" ~ "#808080"
+        purpose == "neg ctrl" ~ "#808080",
+        purpose == 'unclear' ~ "#FFFFFF"
     ))
 df$col <- paste0(df$col, "40")
 
-data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
-    mutate(time_h = as.numeric(time_h))
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx') %>%
+data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
+    mutate(time_h = as.numeric(time)) %>%
+    rename(well = Variable)
 
 data %>%
     group_by(plate, well, media, time_h, condition, strainID) %>%

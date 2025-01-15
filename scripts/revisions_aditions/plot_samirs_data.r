@@ -137,7 +137,8 @@ for (medium in unique(data$media)) {
             strip.text = element_text(size = 8)
         ) +
         xlab("time [h]") +
-        ylab("OD")
+        ylab("OD") +
+        scale_y_log10() +
         NULL
 
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)

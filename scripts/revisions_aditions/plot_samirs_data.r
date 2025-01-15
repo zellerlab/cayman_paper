@@ -69,8 +69,8 @@ df$col <- paste0(df$col, "40")
 
 #data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
 #data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx') %>%
-data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
+data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
     mutate(time_h = as.numeric(time)) %>%
     rename(well = Variable)
 
@@ -111,7 +111,7 @@ p <- ggplot(auc_data_agg) +
     ylab("AUC")
     NULL
 
-ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/growth_data_auc_v1.pdf", width = 10, height = 6)
+ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/growth_data_auc_v1.pdf", width = 10, height = 4)
 #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/growth_data_auc_v2.pdf", width = 10, height = 6)
 
 # plot mgam growth curves
@@ -120,6 +120,7 @@ for (medium in unique(data$media)) {
         #filter(media == 'mGAM') %>%
         filter(media == medium) %>%
         mutate(strain = str_c(species, "_", strainID)) %>%
+        mutate(g = str_c(well, plate)) %>%
         ggplot() +
         geom_tile(
             data = auc_data_agg %>%
@@ -128,7 +129,7 @@ for (medium in unique(data$media)) {
                 mutate(strain = str_c(species, "_", strainID)) %>%
                 distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
         scale_fill_identity() +
-        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = well)) +
+        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
         theme_classic() +
         facet_wrap(. ~ strain, ncol = 3) +
         # make facet_wrap text size smaller

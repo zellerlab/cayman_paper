@@ -136,6 +136,7 @@ for (medium in unique(data$media)) {
             strip.text = element_text(size = 8)
         ) +
         xlab("time [h]") +
+        scale_y_log10() +
         ylab("OD")
         NULL
 

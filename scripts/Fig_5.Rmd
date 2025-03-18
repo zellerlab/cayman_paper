@@ -91,7 +91,7 @@ top_15_pos <- bar_plots_random_effect_study %>% top_n(15,fc)
 top_15_neg <- bar_plots_random_effect_study %>% top_n(-15,fc)
 top_15_each_direction <- bind_rows(top_15_pos, top_15_neg)
 
-count_samples_study <- meta(CRC_ps)
+count_samples_study <- microbiome::meta(CRC_ps)
 count_samples_study <- count_samples_study %>% dplyr::count(Study)
 df.assoc <- left_join(df.assoc, count_samples_study, by = "Study")
 df.assoc$ntest <- paste("(n=", "", df.assoc$n)
@@ -118,7 +118,6 @@ diff_abundance_crc <- df.assoc %>% # take only genera of interest
     theme(axis.text.y = element_text(size=10)) + 
     theme_publication() + 
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-
 ```
 
 ## Second part of figure 5B, including GSEA

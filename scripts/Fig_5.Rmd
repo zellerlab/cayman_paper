@@ -163,7 +163,7 @@ row_annotations_DF <- ggplot(DF_annotations_final %>% filter(Subfamily %in% bar_
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
   theme(legend.position = "none") +
   theme(axis.line = element_blank()) +
-  xlab("p-value\n 8.3e-04") + 
+  xlab("p-value\n 1.1-02") + 
   ylab(NULL)
 
 ## For GAGs
@@ -182,7 +182,7 @@ row_annotations_GAG <- ggplot(GAG_annotations_final %>% filter(Subfamily %in% ba
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
   theme(legend.position = "none") +
   theme(axis.line = element_blank()) +
-  xlab("p-value\n 1.1e-04") + 
+  xlab("p-value\n 1.1e-02") + 
   ylab(NULL)
 
 ## For PG
@@ -202,7 +202,7 @@ row_annotations_PG <- ggplot(PG_annotations_final %>% filter(Subfamily %in% bar_
   #theme(axis.title.x = element_text(size = 9)) +
   theme(legend.position = "none") +
   theme(axis.line = element_blank()) +
-  xlab("p-value\n 1.8e-01") + 
+  xlab("p-value\n 2.8e-01") + 
   ylab(NULL)
 
 ## For Glycogen
@@ -220,7 +220,7 @@ row_annotations_Glycogen <- ggplot(Glycogen_annotations_final %>% filter(Subfami
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
   theme(axis.line = element_blank()) +
-  xlab("p-value\n 1.6e-01") + 
+  xlab("p-value\n 1.5e-01") + 
   ylab(NULL)
 
 ## For mucin (but very limited sense with only 2 annotated CAZymes)
@@ -238,10 +238,10 @@ row_annotations_Mucin <- ggplot(Mucin_annotations_final %>% filter(Subfamily %in
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
   theme(legend.position = "none") +
   theme(axis.line = element_blank()) +
-  xlab("p-value\n 8.9e-02") + 
+  xlab("p-value\n 1.1e-02") + 
   ylab(NULL)
 
-Fig_5B <- horiz_bar_plots_Fig_5B %>% insert_right(row_annotations_DF,width=0.08) %>% insert_right(row_annotations_GAG,width=0.08) %>% insert_right(row_annotations_PG,width=0.08) %>% insert_right(row_annotations_Glycogen,width=0.08) %>% insert_right(row_annotations_Mucin,width=0.08)
+Fig_5B <- horiz_bar_plots_Fig_5B %>% insert_right(row_annotations_DF,width=0.08) %>% insert_right(row_annotations_GAG,width=0.08) %>% insert_right(row_annotations_Mucin,width=0.08) %>% insert_right(row_annotations_PG,width=0.08) %>% insert_right(row_annotations_Glycogen,width=0.08)
 ```
 
 ## Lastly Extended Data Figure 6

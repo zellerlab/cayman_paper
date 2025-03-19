@@ -1,0 +1,33 @@
+---
+title: "Compare_cayman_dbcan_annotations"
+author: "QD"
+date: "2025-03-19"
+output: html_document
+---
+
+```{r}
+completed_substrate_annotations_cayman_dbcan <- completed_substrate_annotations %>% drop_na(Agreement)
+
+
+ggplot(completed_substrate_annotations_cayman_dbcan %>% group_by(Agreement) %>% summarise(counts = n())) +
+  theme_publication() +
+  aes(x = reorder(Agreement, -counts), y = counts) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("") +
+  ylab("Number of CAZyme families substrate annotations")
+
+## For a bit more homogenous/interpretable 'Agreement' categories
+completed_substrate_annotations_cayman_dbcan_grouped <- completed_substrate_annotations_cayman_dbcan
+completed_substrate_annotations_cayman_dbcan_grouped$Agreement <- gsub(" with.*", "", completed_substrate_annotations_cayman_dbcan_grouped$Agreement)
+completed_substrate_annotations_cayman_dbcan_grouped$Agreement <- gsub(" and.*", "", completed_substrate_annotations_cayman_dbcan_grouped$Agreement)
+
+ggplot(completed_substrate_annotations_cayman_dbcan_grouped %>% group_by(Agreement) %>% summarise(counts = n())) +
+  theme_publication() +
+  aes(x = reorder(Agreement, -counts), y = counts) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("") +
+  ylab("Number of CAZyme families substrate annotations")
+```
+

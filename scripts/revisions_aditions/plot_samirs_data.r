@@ -5,6 +5,8 @@ library(tidyverse)
 library(zoo)
 #library(ggembl)
 
+rna_selected_strains <- read_csv('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/5_selected_strains_for_RNA_seq.csv')
+
 get_auc_v1 <- function(x, y) {
     id <- order(x)
     AUC <- sum(diff(x[id])*rollmean(y[id],2))
@@ -145,3 +147,65 @@ for (medium in unique(data$media)) {
     ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 9, height = 6)
 }
 
+p_log <- data %>%
+    inner_join(rna_selected_strains, by = c('species', 'strainID', 'media')) %>%
+    mutate(strain = str_c(species, "_", strainID)) %>%
+    mutate(g = str_c(well, plate)) %>%
+    mutate(species = factor(species, levels = c(
+        "Hungatella hathewayi",
+        "Eisenbergiella tayi",
+        "Coprobacter secundus",
+        "Phocaeicola vulgatus",
+        "Bacteroides uniformis"
+    ))) %>%
+    mutate(strain = factor(strain, levels = str_c(rna_selected_strains$species, "_", rna_selected_strains$strainID))) %>%
+    ggplot() +
+    # geom_tile(
+    #     data = auc_data_agg %>%
+    #         inner_join(rna_selected_strains, by = c('species', 'strainID')) %>%
+    #         ungroup() %>% 
+    #         select(species, strainID, col) %>%
+    #         mutate(strain = str_c(species, "_", strainID)) %>%
+    #         distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
+    scale_fill_identity() +
+    geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
+    theme_classic() +
+    facet_wrap(~strain + media, ncol =5 ) +
+    # make facet_wrap text size smaller
+    theme(
+        strip.text = element_text(size = 8)
+    ) +
+    xlab("time [h]") +
+    ylab("OD") +
+    scale_y_log10() +
+    NULL
+
+p_identity <- data %>%
+    inner_join(rna_selected_strains, by = c('species', 'strainID', 'media')) %>%
+    mutate(strain = str_c(species, "_", strainID)) %>%
+    mutate(g = str_c(well, plate)) %>%
+    mutate(strain = factor(strain, levels = str_c(rna_selected_strains$species, "_", rna_selected_strains$strainID))) %>%
+    ggplot() +
+    # geom_tile(
+    #     data = auc_data_agg %>%
+    #         inner_join(rna_selected_strains, by = c('species', 'strainID')) %>%
+    #         ungroup() %>% 
+    #         select(species, strainID, col) %>%
+    #         mutate(strain = str_c(species, "_", strainID)) %>%
+    #         distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
+    scale_fill_identity() +
+    geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
+    theme_classic() +
+    facet_wrap(~strain + media, ncol =5 ) +
+    # make facet_wrap text size smaller
+    theme(
+        strip.text = element_text(size = 8)
+    ) +
+    xlab("time [h]") +
+    ylab("OD") +
+    #scale_y_log10() +
+    NULL
+
+
+library(patchwork)
+ggsave(plot = p_identity / p_log + plot_layout(guides = 'collect'), filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/5_selected_strains_growth_curves.pdf"), width = 12, height = 4)

@@ -1,0 +1,111 @@
+---
+title: "Enrichment_Hierarchical_Levels_CRC"
+author: "QD"
+date: "2025-03-19"
+output: html_document
+---
+
+## Test at different glycan annotation level as per request of one of the reviewers (FAD2)
+```{r}
+library(fgsea)
+FAD2_annotations <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_2,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_2 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_2) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_2) ## Unknown is removed as this is a non-informative substrate level.
+FAD2_annotations$FUNCTION_AT_DESTINATION_2 <- as.factor(FAD2_annotations$FUNCTION_AT_DESTINATION_2)
+FAD2_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD2_annotations$Subfamily)
+
+## Now convert into list of pathways with proper format for GSEA testing
+
+pathways_FAD_2 <- list()
+
+for (group in levels(FAD2_annotations$FUNCTION_AT_DESTINATION_2)){
+  print(group)
+  tmp_df <- FAD2_annotations %>% dplyr::filter(FUNCTION_AT_DESTINATION_2==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_2[group] <- group
+  pathways_FAD_2[[length(pathways_FAD_2)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
+
+results_associations_FAD_2 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% FAD2_annotations$Subfamily)
+ranks <- results_associations_FAD_2$fc
+names(ranks) <- results_associations_FAD_2$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_CRC_FAD_2 <- fgseaMultilevel(pathways_FAD_2, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes_CRC_FAD_2[order(padj, -abs(NES)), ], n=10)
+```
+
+## Test at FAD3 as well
+```{r}
+FAD3_annotations <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_3,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_3 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_3) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_3) ## Unknown is removed as this is a non-informative substrate level.
+FAD3_annotations$FUNCTION_AT_DESTINATION_3 <- as.factor(FAD3_annotations$FUNCTION_AT_DESTINATION_3)
+FAD3_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD3_annotations$Subfamily)
+
+## Now convert into list of pathways with proper format for GSEA testing
+
+pathways_FAD_3 <- list()
+
+for (group in levels(FAD3_annotations$FUNCTION_AT_DESTINATION_3)){
+  print(group)
+  tmp_df <- FAD3_annotations %>% dplyr::filter(FUNCTION_AT_DESTINATION_3==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_3[group] <- group
+  pathways_FAD_3[[length(pathways_FAD_3)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
+
+results_associations_FAD_3 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% FAD3_annotations$Subfamily)
+ranks <- results_associations_FAD_3$fc
+names(ranks) <- results_associations_FAD_3$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_CRC_FAD_3 <- fgseaMultilevel(pathways_FAD_3, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes_CRC_FAD_3[order(padj, -abs(NES)), ], n=10)
+plotEnrichment(pathways_FAD_3[["GAG"]], ranks)
+
+## For the figure display, note that we will only take FAD3 levels with >10 CAZymes, so sucrose and alpha-galactooligosacharides will not be displayed.
+```
+## Test at individual glycan level
+```{r}
+glycan_annotations_final_cleaned_long_glycan <- glycan_annotations_final_cleaned_long %>% separate_rows(Glycan_annotation, sep = ",")
+
+test <- glycan_annotations_final_cleaned_long_glycan %>% select(Glycan_annotation,Subfamily) %>% drop_na() %>% filter(!Glycan_annotation == "Unknown") %>% group_by(Glycan_annotation) %>% distinct() %>% group_by(Glycan_annotation) ## Unknown is removed as this is a non-informative substrate level.
+test$Glycan_annotation <- as.factor(test$Glycan_annotation)
+test$Subfamily <- gsub("([A-Z])_","\\1",test$Subfamily)
+
+## Now convert into list of pathways with proper format for GSEA testing
+
+pathways_Glycan_annotation <- list()
+
+for (group in levels(test$Glycan_annotation)){
+  print(group)
+  tmp_df <- test %>% dplyr::filter(Glycan_annotation==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_Glycan_annotation[group] <- group
+  pathways_Glycan_annotation[[length(pathways_Glycan_annotation)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
+
+results_associations_Glycan_annotation <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_Glycan_annotation$fc
+names(ranks) <- results_associations_Glycan_annotation$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_CRC_Glycan <- fgseaMultilevel(pathways_Glycan_annotation, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes_CRC_Glycan[order(padj, -abs(NES)), ], n=10)
+plotEnrichment(pathways_Glycan[["GAG"]], ranks)
+```

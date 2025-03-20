@@ -26,7 +26,7 @@ almeidaCAZy <- read_tsv(here('data', 'almeida_cazy_annotations.tsv'))
 
 # Load cazy annotations
 #cazyAnnots <- read_tsv(here('data', "20230609_glycan_annotations_cleaned_Nic.tsv"))
-completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20230607_glycan_annotations_cleaned.xlsx"))
+completed_substrate_annotations <- read_xlsx(here("data", "Glycan_Annotations", "20250219_Table_S1_incl_dbCAN3_annotations.xlsx"))
 glycan_annotations_final_cleaned <- completed_substrate_annotations %>% select(c(Family:Subfamily,ORIGIN:FUNCTION_AT_DESTINATION_3, Glycan_annotation))
 cazyAnnots <- glycan_annotations_final_cleaned
 

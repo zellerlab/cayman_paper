@@ -182,7 +182,8 @@ substrateNsByGenus <- almeidaCAZy %>% left_join(cazyAnnots %>%
 # Subset to only what is there in tree before z-scoring (otherwise scales are getting all messed up...)
 substrateNsByGenus$Genus <- str_replace(substrateNsByGenus$Genus, ".* ", "")
 substrateNsByGenus <- substrateNsByGenus %>%
-  filter(Genus %in% tree.filtered$tip.label)
+  filter(Genus %in% tree.filtered$tip.label) %>%
+  select(-any_of('Unknown'))
 
 # z-scores
 substrateNsByGenus[, !colnames(substrateNsByGenus) == "Genus"] <- apply(substrateNsByGenus[, !colnames(substrateNsByGenus) == "Genus"], 2, scale)

@@ -39,19 +39,19 @@ ggsave("N:/Users/Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3A.pdf", Fig3
 ## Bray-Curtis
 metadata_perm <- microbiome::meta(westernized_non_westernized_ps)
 bray_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "bray")
-betadisper_test <- betadisper(bray_matrix, metadata_perm$non_westernized)
-permutest(betadisper_test) ##Means we reject that groups have same dispersions
-set.seed(1000) ## To ensure reproducible results
-adonis_result_bray <- adonis2(bray_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
+#betadisper_test <- betadisper(bray_matrix, metadata_perm$non_westernized)
+#permutest(betadisper_test) ##p=0.001 Means we reject that groups have same dispersions
+#set.seed(1000) ## To ensure reproducible results
+#adonis_result_bray <- adonis2(bray_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
 ## Results are R2 = 0.0798 (so 0.080) and p 0.001
 
-pcoa_info <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'bray')
-pcoa_plot_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_info, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [39.1%]") + ylab("PC2 [15.0%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+pcoa_bray <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'bray')
+pcoa_plot_study_colored_bray <- plot_ordination(westernized_non_westernized_ps, pcoa_bray, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [39.1%]") + ylab("PC2 [15.0%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
 
 ## Manhattan
 manhattan_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "manhattan")
 betadisper_test <- betadisper(manhattan_matrix, metadata_perm$non_westernized)
-permutest(betadisper_test) ##Means we cannot reject that the groups have the same dispersions, so this gives us higher confidence that adonis rseults are real
+permutest(betadisper_test) ##Means we cannot reject that the groups have the same dispersions, so this gives us higher confidence that adonis results are real
 set.seed(1000) ## To ensure reproducible results
 adonis_result_manhattan <- adonis2(manhattan_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
 
@@ -59,6 +59,16 @@ adonis_result_manhattan <- adonis2(manhattan_matrix ~ non_westernized,data = met
 westernized_non_westernized_ps_log10 <- microbiome::transform(westernized_non_westernized_ps, "log10") ## Rel abundances
 pcoa_manhattan <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'manhattan')
 pcoa_plot_manhattan_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_manhattan, color="study_name_W_NW_info", title='PCoA (Manhattan)') + theme_classic() + geom_point(size=2, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+
+layout_matrix <- "
+A
+B
+"
+
+Extended_Data_Fig2 <- pcoa_plot_study_colored_bray +
+
+ggsave(here("../figures/Extended_Data_Fig2.pdf"), Extended_Data_Fig2, width = 120, height = 75, unit = "mm")
+
 ```
 
 ## Fig 3B and Extended Data Fig 3
@@ -67,7 +77,7 @@ W_NW_rel_abun_long <- psmelt(westernized_non_westernized_ps)
 CAZyme_count <- W_NW_rel_abun_long %>% filter(Abundance > 1) %>% group_by(Sample) %>% summarise(across(Abundance, ~sum(.x != 0))) %>% rename(Abundance = "Unique_CAZyme_count") ## Note that here it is absolutely crucial to filter on Abundance 1 to get the RPKM filter in there for prevalence estimation. For initial exploration of e.g. read count correlations it isn't really necessary, but for the final figures definitely so.
 CAZyme_count_df <- left_join(CAZyme_count, sampledata, by = c("Sample" = "sample_id"))
 
-write_tsv(CAZyme_count_df, here("data", "Intermediate_Files", "20240809_CAZyme_count_df.tsv"))
+#write_tsv(CAZyme_count_df, here("data", "Intermediate_Files", "20240809_CAZyme_count_df.tsv"))
 
 Fig3B <- ggplot(CAZyme_count_df) +
   theme_publication() +
@@ -81,22 +91,70 @@ Fig3B <- ggplot(CAZyme_count_df) +
   ylab("Number of unique CAZymes") + 
   theme(axis.text.x = element_blank())
 
-ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3B.pdf", Fig3B, width = 35, height = 45, unit = "mm")
+#ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3B.pdf", Fig3B, width = 35, height = 45, unit = "mm")
 
 median_order <- CAZyme_count_df %>% group_by(study_name_info_n) %>% summarise(Median = median(Unique_CAZyme_count)) %>% arrange(-Median)
 
-Extended_Data_Fig3 <- ggplot(CAZyme_count_df %>% mutate(study_name_info_n = as.factor(study_name_info_n)) %>% mutate(study_name_info_n = fct_relevel(study_name_info_n, median_order$study_name_info_n))) +
+Extended_Data_Fig3_1 <- ggplot(CAZyme_count_df %>% mutate(study_name_info_n = as.factor(study_name_info_n)) %>% mutate(study_name_info_n = fct_relevel(study_name_info_n, median_order$study_name_info_n))) +
   #theme_classic() +
   theme_publication() +
   aes(x = study_name_info_n, y = Unique_CAZyme_count, fill = non_westernized) +
-  geom_boxplot() +
+  geom_boxplot(outlier.alpha = 0.2) +
   #stat_compare_means(aes(label = paste0("p =", ..p.format..)), method = "wilcox.test") +
   #stat_compare_means(aes(group = non_westernized), label = "p.signif", label.x = 1.5, method = "wilcox.test") +
   stat_compare_means(aes(group = non_westernized), bracket.size = 0.5, label = "p.format", label.x = 1.5, method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1)) +
   xlab("") +
-  ylab("Number of Unique CAZymes")
+  ylab("Number of Unique CAZymes") +
+  theme(legend.position = "none")
+
+DF_CAZymes <- glycan_annotations_final_cleaned_long %>% select(Subfamily, FUNCTION_AT_DESTINATION_1) %>% filter(FUNCTION_AT_DESTINATION_1 == "DF") %>% distinct()
+
+CAZyme_count_DF <- W_NW_rel_abun_long %>% filter(OTU %in% DF_CAZymes$Subfamily) %>% filter(Abundance > 1) %>% group_by(Sample) %>% summarise(across(Abundance, ~sum(.x != 0))) %>% rename(Abundance = "Unique_CAZyme_count") ## Note that here it is absolutely crucial to filter on Abundance 1 to get the RPKM filter in there for prevalence estimation. For initial exploration of e.g. read count correlations it isn't really necessary, but for the final figures definitely so.
+CAZyme_count_DF_df <- left_join(CAZyme_count_DF, sampledata, by = c("Sample" = "sample_id"))
+
+Extended_Data_Fig3_2 <- ggplot(CAZyme_count_DF_df) +
+  theme_publication() +
+  aes(x = non_westernized, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  #stat_compare_means(aes(group = non_westernized), label = "p.signif", label.x = 1.5, method = "wilcox.test") +
+  #stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  stat_compare_means(aes(group = non_westernized), label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  #ggpubr::geom_bracket(aes(xmin = "Non_Westernized", xmax = "Westernized", y.position = 300, label = "p = <2e-16", bracket.linetype = "solid")) +
+  #ggsignif::geom_signif(y_position = c(320, 340), xmin = 0.5, xmax = 1.5) +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  xlab("") +
+  ylab("Number of unique CAZymes involved in dietary fibre metabolism") + 
+  theme(axis.text.x = element_blank()) +
+  theme(legend.position = "none")
+
+median_order <- CAZyme_count_DF_df %>% group_by(study_name_info_n) %>% summarise(Median = median(Unique_CAZyme_count)) %>% arrange(-Median)
+
+Extended_Data_Fig3_3 <- ggplot(CAZyme_count_DF_df %>% mutate(study_name_info_n = as.factor(study_name_info_n)) %>% mutate(study_name_info_n = fct_relevel(study_name_info_n, median_order$study_name_info_n))) +
+  #theme_classic() +
+  theme_publication() +
+  aes(x = study_name_info_n, y = Unique_CAZyme_count, fill = non_westernized) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  #stat_compare_means(aes(label = paste0("p =", ..p.format..)), method = "wilcox.test") +
+  #stat_compare_means(aes(group = non_westernized), label = "p.signif", label.x = 1.5, method = "wilcox.test") +
+  stat_compare_means(aes(group = non_westernized), bracket.size = 0.5, label = "p.format", label.x = 1.5, method = "wilcox.test") +
+  scale_fill_manual(values=c('#D41645','#3B6FB6')) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1)) +
+  xlab("") +
+  ylab("Number of unique CAZymes involved in dietary fibre metabolism") +
+  theme(legend.position = "none")
+
+layout_matrix <- "
+AAAAAA
+BCCCCC
+"
+
+Extended_Data_Fig3 <- Extended_Data_Fig3_1 + Extended_Data_Fig3_2 + Extended_Data_Fig3_3 + plot_layout(design = layout_matrix)
+
+ggsave(here("figures/Extended_Data_Fig3_Unique_CAZymes.pdf"), Extended_Data_Fig3, width = 180, height = 150, unit = "mm")
+
 ```
 
 ## Fig 3C+D
@@ -229,7 +287,7 @@ Fig3E <- Fig3E_1 + Fig3E_2 + Fig3E_3 + plot_layout(design = layout_matrix)
 ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3E.pdf", Fig3E, width = 130, height = 80, unit = "mm")
 ```
 
-## Extended Data Figs 4 and 5
+## Extended Data Figs 5 and 6
 ```{r}
 ## Load the alignment rates table, first aligned reads versus raw reads
 alignment_rates_raw <- read_delim(here("data", "Alignments_Raw_Counts", "GMGC_alignment_rates_total.tab"), col_names = FALSE)
@@ -253,7 +311,8 @@ Extended_Data_Fig_4 <- ggplot(alignment_rates_raw_W_NW %>% mutate(non_westernize
   stat_compare_means(aes(label = paste0("p =", ..p.format..)), method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   xlab("") +
-  ylab("Alignment rate")
+  ylab("Alignment rate") +
+  theme(legend.position="none")
 
 ##Extended Data Fig 5
 alignment_rates_raw_W_NW_925_higher <- alignment_rates_raw_W_NW %>% filter(alignment_rate >= 0.925) %>% filter(alignment_rate < 0.975)
@@ -272,7 +331,7 @@ CAZyme_count_df_925$study_name_W_NW_info_n_align <- paste(CAZyme_count_df_925$st
 Extended_Data_Fig_5_1 <- ggplot(CAZyme_count_df_925 %>% mutate(non_westernized = as.factor(non_westernized)) %>% mutate(non_westernized = recode(non_westernized, Non_Westernized = "NW (n=415)", Westernized = "W (n=1,080"))) +
   theme_publication() +
   aes(x = non_westernized, y = Unique_CAZyme_count, fill = non_westernized) +
-  geom_boxplot() +
+  geom_boxplot(outlier.alpha = 0.2) +
   stat_compare_means(method = "wilcox.test") +
   scale_fill_manual(values=c('#D41645', '#3B6FB6')) +
   xlab("") +
@@ -284,11 +343,21 @@ median_order <- CAZyme_count_df_925 %>% group_by(study_name_W_NW_info_n_align) %
 Extended_Data_Fig_5_2 <- ggplot(CAZyme_count_df_925 %>% mutate(study_name_W_NW_info_n_align = as.factor(study_name_W_NW_info_n_align)) %>% mutate(study_name_W_NW_info_n_align = fct_relevel(study_name_W_NW_info_n_align, median_order$study_name_W_NW_info_n_align))) +
   theme_publication() +
   aes(x = study_name_W_NW_info_n_align, y = Unique_CAZyme_count, fill = non_westernized) +
-  geom_boxplot() +
+  geom_boxplot(outlier.alpha = 0.2) +
   scale_fill_manual(values=c('#D41645', '#3B6FB6')) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1)) +
   ylab("") +
-  xlab("")
+  xlab("") +
+  theme(legend.position="none")
+  
+
+layout_matrix <- "
+ABCCCCCC
+"
+
+Extended_Data_Fig4 <- Extended_Data_Fig_4 + Extended_Data_Fig_5_1 + Extended_Data_Fig_5_2 + plot_layout(design = layout_matrix)
+ggsave(here("figures/Extended_Data_Fig4_Alignment_Rates.pdf"), Extended_Data_Fig4, width = 180, height = 150, unit = "mm")
+
 
 ```
 ## Fig 3F

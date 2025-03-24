@@ -229,7 +229,7 @@ westernized_non_westernized_ps <- phyloseq(OTU, sampledata)
 
 ## Here extract abundances of only the samples we'll continue with in the analyses
 complete_western_non_western_rel_abundances_wide_filtered_samples <- microbiome::abundances(westernized_non_westernized_ps)
-saveRDS(complete_western_non_western_rel_abundances_wide_filtered_samples, here("data", "Intermediate_Files", "20240809_complete_western_non_western_rel_abundances_wide.rds"))
+#saveRDS(complete_western_non_western_rel_abundances_wide_filtered_samples, here("data", "Intermediate_Files", "20240809_complete_western_non_western_rel_abundances_wide.rds"))
 
 
 ## For manuscript, headers with keypoint and figure drafts.

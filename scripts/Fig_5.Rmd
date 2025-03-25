@@ -293,7 +293,7 @@ Mucin_to_DF_CRC <- ggplot(RPKM_per_substrate_CRC_substrate_ratios) +
   theme_publication() +
   aes(x = Group, y = Mucin_to_DF, fill = Group) +
   geom_boxplot(outlier.alpha = 0.2) +
-  stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df
+  #stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_blank()) +
   xlab("") +
@@ -304,13 +304,13 @@ GAG_to_DF_CRC <- ggplot(RPKM_per_substrate_CRC_substrate_ratios) +
   theme_publication() +
   aes(x = Group, y = GAG_to_DF, fill = Group) +
   geom_boxplot(outlier.alpha = 0.2) +
-  stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df
+  #stat_compare_means(aes(group = Group), label = "p.format", label.x = 1.5, method = "wilcox.test") + ## Please note that we should manually adapt p-values to be < 2.2e-16 for both mucin to df and gag to df, as we use the LMM results
   scale_fill_manual(values=c('#D41645','#3B6FB6')) +
   theme(axis.text.x = element_blank()) +
   xlab("") +
   ylab("GAG to DF ratio")
  
-Extended_Data_Fig8 <- Mucin_to_DF_CRC + GAG_to_DF_CRC + plot_layout(guides = "collect") + plot_layout(ncol = 2)
+#Extended_Data_Fig8 <- Mucin_to_DF_CRC + GAG_to_DF_CRC + plot_layout(guides = "collect") + plot_layout(ncol = 2)
 
 ## Now compute ratios per study as a Supplementary figure
 RPKM_per_substrate_CRC_substrate_ratios_study <- RPKM_per_substrate_CRC_substrate_ratios %>% mutate(study_n = Study)
@@ -344,5 +344,16 @@ GAG_to_DF_CRC_study <- ggplot(RPKM_per_substrate_CRC_substrate_ratios_study) +
   xlab("") +
   ylab("GAG to DF ratio")
 
-Supplementary_Fig1 <- Mucin_to_DF_CRC_study + GAG_to_DF_CRC_study + plot_layout(guides = "collect") + plot_layout(ncol = 1)
+#Supplementary_Fig1 <- Mucin_to_DF_CRC_study + GAG_to_DF_CRC_study + plot_layout(guides = "collect") + plot_layout(ncol = 1)
+
+layout_matrix <- "
+ACCCCCC
+BDDDDDD
+"
+
+
+Extended_Data_Fig8 <- Mucin_to_DF_CRC + GAG_to_DF_CRC + Mucin_to_DF_CRC_study + GAG_to_DF_CRC_study + plot_layout(guides = "collect") + plot_layout(design = layout_matrix)
+
+ggsave(here("figures/Extended_Data_Fig8.pdf"), Extended_Data_Fig8, width = 180, height = 150, unit = "mm")
+
 ```

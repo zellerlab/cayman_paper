@@ -49,25 +49,26 @@ pcoa_bray <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 
 pcoa_plot_study_colored_bray <- plot_ordination(westernized_non_westernized_ps, pcoa_bray, color="study_name_W_NW_info_n", title='PCoA (Bray-Curtis)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") +  xlab("PC1 [39.1%]") + ylab("PC2 [15.0%]") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
 
 ## Manhattan
-manhattan_matrix <- phyloseq::distance(westernized_non_westernized_ps, method = "manhattan")
-betadisper_test <- betadisper(manhattan_matrix, metadata_perm$non_westernized)
-permutest(betadisper_test) ##Means we cannot reject that the groups have the same dispersions, so this gives us higher confidence that adonis results are real
+westernized_non_westernized_ps_log10 <- microbiome::transform(westernized_non_westernized_ps, "log10") ## Obtain log10 abundances for Euclidian PCoA
+euclidian_log10_matrix <- phyloseq::distance(westernized_non_westernized_ps_log10, method = "euclidean")
+betadisper_test <- betadisper(euclidian_log10_matrix, metadata_perm$non_westernized)
+permutest(betadisper_test) ##p=0.001 Means we reject that groups have same dispersions
 set.seed(1000) ## To ensure reproducible results
-adonis_result_manhattan <- adonis2(manhattan_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
+adonis_result_euclidian_log10 <- adonis2(euclidian_log10_matrix ~ non_westernized,data = metadata_perm, permutations = 999)
 
-## P-value 0.001 and R2 = 0.08946 --> This needs to be rerun / adapted for the revisions
-westernized_non_westernized_ps_log10 <- microbiome::transform(westernized_non_westernized_ps, "log10") ## Rel abundances
-pcoa_manhattan <- ordinate(westernized_non_westernized_ps, method='PCoA', distance = 'manhattan')
-pcoa_plot_manhattan_study_colored <- plot_ordination(westernized_non_westernized_ps, pcoa_manhattan, color="study_name_W_NW_info", title='PCoA (Manhattan)') + theme_classic() + geom_point(size=2, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
+## P-value 0.001 and R2 = 0.11708 
+
+pcoa_euclidian_log10 <- ordinate(westernized_non_westernized_ps_log10, method='PCoA', distance = 'euclidean')
+pcoa_plot_euclidian_log10_study_colored <- plot_ordination(westernized_non_westernized_ps_log10, pcoa_euclidian_log10, color="study_name_W_NW_info", title='PCoA (Euclidian log10)') + theme_publication() + geom_point(size = 0.1, alpha = 0.05) + scale_color_manual(values=mycolors) + labs(color="Study") + guides(color=guide_legend(ncol = 1)) + theme(legend.position = "none")
 
 layout_matrix <- "
 A
 B
 "
 
-Extended_Data_Fig2 <- pcoa_plot_study_colored_bray +
+Extended_Data_Fig2 <- pcoa_plot_study_colored_bray + pcoa_plot_euclidian_log10_study_colored + plot_layout(design = layout_matrix)
 
-ggsave(here("../figures/Extended_Data_Fig2.pdf"), Extended_Data_Fig2, width = 120, height = 75, unit = "mm")
+ggsave(here("figures/Extended_Data_Fig2.pdf"), Extended_Data_Fig2, width = 140, height = 150, unit = "mm")
 
 ```
 

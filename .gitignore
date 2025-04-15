@@ -8,3 +8,7 @@ data/motus_level_mean_cazy_abundances.tsv
 data/paths_to_276_rep_genomes.txt
 data/pg3_2_motu_tax_v2
 data/paths_to_276_rep_genomes_SAFETY.txt
+scripts/revisions_aditions/rnaseq/data/v3
+scripts/revisions_aditions/rnaseq/scripts/.nextflow
+scripts/revisions_aditions/rnaseq/scripts/work
+scripts/revisions_aditions/rnaseq/scripts/null

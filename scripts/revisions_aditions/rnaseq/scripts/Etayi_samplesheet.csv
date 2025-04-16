@@ -1,0 +1,7 @@
+sample,fastq_1,fastq_2,strandedness
+CONTROL_REP1,S13.fastq.gz,,forward
+CONTROL_REP2,S14.fastq.gz,,forward
+CONTROL_REP3,S15.fastq.gz,,forward
+TREATMENT_REP1,S16.fastq.gz,,forward
+TREATMENT_REP2,S17.fastq.gz,,forward
+TREATMENT_REP3,S18.fastq.gz,,forward

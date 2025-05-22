@@ -5,7 +5,7 @@ library(tidyverse)
 library(zoo)
 #library(ggembl)
 
-rna_selected_strains <- read_csv('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/5_selected_strains_for_RNA_seq.csv')
+rna_selected_strains <- read_csv('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/selected_strains_for_RNA_seq.csv')
 
 get_auc_v1 <- function(x, y) {
     id <- order(x)
@@ -72,64 +72,43 @@ df$col <- paste0(df$col, "40")
 #data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
 #data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx') %>%
 #data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
-data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_1-1.xlsx') %>%
+# Based on email from Samir from February, Run4-2 should be correct for Eisenbergiella and Hungatella
+data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx') %>%
     mutate(time_h = as.numeric(time)) %>%
-    rename(well = Variable)
-
-data %>%
-    group_by(plate, well, media, time_h, condition, strainID) %>%
-    tally()
-
-auc_data <- data %>% 
-    group_by(plate, well, media, condition, strainID, species) %>%
-    summarize(
-        auc = get_auc_v1(time_h, OD_adjusted),
-        #auc = get_auc_v2(time_h, OD_adjusted)
-    )
-
-auc_data_agg <- auc_data %>%
-    group_by(media, condition, strainID, species) %>%
-    summarize(
-        mean_auc = mean(auc), sd_auc = sd(auc)
-        ) %>%
-    left_join(df, by = 'species') %>%
-    mutate(species = factor(species, levels = df$species))
-
-species_values <- 1:length(unique(auc_data_agg$species))
-pp <- position_dodge(width = 0.8)
-p <- ggplot(auc_data_agg) +
-    geom_tile(
-        data = auc_data_agg %>%
-            ungroup() %>% 
-            select(species, col) %>%
-            distinct(), aes(x = species, y = 0, fill = col), width = 1, height = Inf) +
-    geom_point(aes(x = species, y = mean_auc, color = condition, group = strainID), position = pp) +
-    geom_errorbar(aes(x = species, ymin = mean_auc - sd_auc, ymax = mean_auc + sd_auc, group = strainID), position = pp, width = 0.2, alpha = 0.5) +
-    geom_vline(xintercept = species_values + 0.5, linetype = "dashed", color = "black") +
-    scale_fill_identity() +
-    theme_classic() +
-    facet_wrap(media ~., ncol = 3) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-    ylab("AUC")
-    NULL
-
-ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/growth_data_auc_v1.pdf", width = 10, height = 4)
-#ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/growth_data_auc_v2.pdf", width = 10, height = 6)
+    rename(well = Variable) %>%
+    inner_join(data.frame(species = c("Eisenbergiella tayi", "Hungatella hathewayi"))) %>%
+    # Remove 2 noisy measurements
+    anti_join(
+        tibble(
+            plate = c("P1", "P1"),
+            media = c("WCA", "WCA"),
+            time = c(21, 23),
+            well = c("E3", "F3")
+        )
+    ) %>%
+    mutate(strain = str_c(species, "_", strainID)) %>%
+    mutate(
+        strain = case_when(
+            strain == "Eisenbergiella tayi_DSM26961" ~ "Eisenbergiella tayi (DSM26961)",
+            strain == "Hungatella hathewayi_DSM13479" ~ "Hungatella hathewayi (DSM13479)",
+        )
+    ) %>%
+    mutate(
+        condition = case_when(
+            condition == "with_mucin_III_0.5%" ~ "With mucin",
+            condition == "without_mucin" ~ "Without mucin"
+        )
+    ) %>%
+    filter(time <= 30)
 
 # plot mgam growth curves
 for (medium in unique(data$media)) {
     p <- data %>%
-        #filter(media == 'mGAM') %>%
         filter(media == medium) %>%
-        mutate(strain = str_c(species, "_", strainID)) %>%
         mutate(g = str_c(well, plate)) %>%
         ggplot() +
-        geom_tile(
-            data = auc_data_agg %>%
-                ungroup() %>% 
-                select(species, strainID, col) %>%
-                mutate(strain = str_c(species, "_", strainID)) %>%
-                distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
         scale_fill_identity() +
         geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
         theme_classic() +
@@ -141,71 +120,24 @@ for (medium in unique(data$media)) {
         xlab("time [h]") +
         ylab("OD") +
         scale_y_log10() +
+        scale_color_manual(
+            values = c(
+                "With mucin" = "#8ecc52",
+                "Without mucin" = "#808080"
+            )
+        ) +
+        geom_vline(
+            data = data.frame(
+                xintercept = c(19, 20),
+                strain = c("Eisenbergiella tayi (DSM26961)", "Hungatella hathewayi (DSM13479)")
+            ),
+            aes(xintercept = xintercept),
+            alpha = 0.5,
+            linetype = "longdash",
+        )
+        
         NULL
 
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 9, height = 6)
+    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 6, height = 2.25)
 }
-
-p_log <- data %>%
-    inner_join(rna_selected_strains, by = c('species', 'strainID', 'media')) %>%
-    mutate(strain = str_c(species, "_", strainID)) %>%
-    mutate(g = str_c(well, plate)) %>%
-    mutate(species = factor(species, levels = c(
-        "Hungatella hathewayi",
-        "Eisenbergiella tayi",
-        "Coprobacter secundus",
-        "Phocaeicola vulgatus",
-        "Bacteroides uniformis"
-    ))) %>%
-    mutate(strain = factor(strain, levels = str_c(rna_selected_strains$species, "_", rna_selected_strains$strainID))) %>%
-    ggplot() +
-    # geom_tile(
-    #     data = auc_data_agg %>%
-    #         inner_join(rna_selected_strains, by = c('species', 'strainID')) %>%
-    #         ungroup() %>% 
-    #         select(species, strainID, col) %>%
-    #         mutate(strain = str_c(species, "_", strainID)) %>%
-    #         distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
-    scale_fill_identity() +
-    geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
-    theme_classic() +
-    facet_wrap(~strain + media, ncol =5 ) +
-    # make facet_wrap text size smaller
-    theme(
-        strip.text = element_text(size = 8)
-    ) +
-    xlab("time [h]") +
-    ylab("OD") +
-    scale_y_log10() +
-    NULL
-
-p_identity <- data %>%
-    inner_join(rna_selected_strains, by = c('species', 'strainID', 'media')) %>%
-    mutate(strain = str_c(species, "_", strainID)) %>%
-    mutate(g = str_c(well, plate)) %>%
-    mutate(strain = factor(strain, levels = str_c(rna_selected_strains$species, "_", rna_selected_strains$strainID))) %>%
-    ggplot() +
-    # geom_tile(
-    #     data = auc_data_agg %>%
-    #         inner_join(rna_selected_strains, by = c('species', 'strainID')) %>%
-    #         ungroup() %>% 
-    #         select(species, strainID, col) %>%
-    #         mutate(strain = str_c(species, "_", strainID)) %>%
-    #         distinct(), aes(x = 1, y = 0, fill = col), width = Inf, height = Inf) +    
-    scale_fill_identity() +
-    geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
-    theme_classic() +
-    facet_wrap(~strain + media, ncol =5 ) +
-    # make facet_wrap text size smaller
-    theme(
-        strip.text = element_text(size = 8)
-    ) +
-    xlab("time [h]") +
-    ylab("OD") +
-    #scale_y_log10() +
-    NULL
-
-
-library(patchwork)
-ggsave(plot = p_identity / p_log + plot_layout(guides = 'collect'), filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/5_selected_strains_growth_curves.pdf"), width = 12, height = 4)

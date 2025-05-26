@@ -109,23 +109,6 @@ for (medium in unique(data$media)) {
         filter(media == medium) %>%
         mutate(g = str_c(well, plate)) %>%
         ggplot() +
-        scale_fill_identity() +
-        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
-        theme_classic() +
-        facet_wrap(. ~ strain, ncol = 3) +
-        # make facet_wrap text size smaller
-        theme(
-            strip.text = element_text(size = 8)
-        ) +
-        xlab("time [h]") +
-        ylab("OD") +
-        scale_y_log10() +
-        scale_color_manual(
-            values = c(
-                "With mucin" = "#8ecc52",
-                "Without mucin" = "#808080"
-            )
-        ) +
         geom_vline(
             data = data.frame(
                 xintercept = c(19, 20),
@@ -134,10 +117,36 @@ for (medium in unique(data$media)) {
             aes(xintercept = xintercept),
             alpha = 0.5,
             linetype = "longdash",
-        )
-        
+        ) +        
+        scale_fill_identity() +
+        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
+        theme_classic() +
+        facet_wrap(. ~ strain, ncol = 1) +
+        # make facet_wrap text size smaller
+        theme(
+            strip.text = element_text(size = 8)
+        ) +
+        xlab("time [h]") +
+        ylab("OD") +
+        scale_y_log10(
+            breaks = c(0.01, 0.05, 0.1, 0.5, 1)
+            ) +
+        scale_color_manual(
+            values = c(
+                "With mucin" = "#8ecc52",
+                "Without mucin" = "#808080"
+            )
+        ) +
+        # put legend to bottom in horizontal fasghion
+        theme(
+            axis.text.x = element_text(size = 7),
+            axis.text.y = element_text(size = 7),
+            legend.position = "bottom",          # Place legend at the bottom
+            legend.direction = "horizontal",     # Make legend horizontal
+            legend.box = "vertical"      
+        ) +     
+        guides(color = guide_legend(ncol = 1)) +
         NULL
-
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 6, height = 2.25)
+    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 2.4, height = 2.9)
 }

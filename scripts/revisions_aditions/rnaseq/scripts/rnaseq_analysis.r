@@ -4,6 +4,7 @@ library(tximport)
 library(ggembl)
 library(DESeq2)
 library(readxl)
+library(here)
 
 
 # Total run time: ~5 minutes
@@ -192,14 +193,53 @@ cayman <- enframe(cayman) %>%
 	select(-name) %>%
 	dplyr::rename(cayman_annotations = value)
 
+p_lociinfo <- list.files('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/rnaseq/data', full.names = T)
+p_lociinfo <- p_lociinfo[str_detect(p_lociinfo, "loci.info")]
+lociinfo <- map(p_lociinfo, \(x) {
+	x <- read_tsv(x, col_names = F) %>%
+		select(X1, X2, X5, X9, X12, X13) %>%
+		mutate(X9_raw = X9) %>%
+		filter(!str_detect(X2, "Dbxref")) %>%
+		#filter(!is.na(X13)) %>%
+		mutate(
+			X1 = str_replace(X1, "gene_id \"", ""),
+			X1 = str_replace(X1, "\"", ""),
+			X2 = str_replace(X2, "transcript_id \"", ""),
+			X2 = str_replace(X2, "\"", ""),
+			X5 = str_replace(X5, "Name \"", ""),
+			X5 = str_replace(X5, "\"", ""),
+			X9 = str_replace(X9, "gene \"", ""),
+			X9 = str_replace(X9, "\"", ""),
+			X12 = str_replace(X12, "product \"", ""),
+			X12 = str_replace(X12, "\"\t protein_id.*", ""),
+			X13 = str_replace(X13, "product \"", ""),
+			X13 = str_replace(X13, "\"\t protein_id.*", ""),			
+		) %>%
+		mutate(X12 = ifelse(str_detect(X12, 'locus_tag') | str_detect(X12, 'transl_table'), X13, X12)) %>%
+		select(-X13) %>%
+		mutate(X12 = str_replace(X12, "\"", ""))  %>%
+		distinct()
+	return(x)
+})
+
+lociinfo <- enframe(lociinfo) %>%
+	mutate(strain = p_lociinfo) %>%
+	mutate(strain = str_split_fixed(strain, "/", n = 20)[, 11]) %>%
+	mutate(strain = str_replace(strain, "_from_agat.loci.info", "")) %>%
+	select(-name) %>%
+	dplyr::rename(lociinfoo = value)
+
 alldata_with_deseq2 <- alldata_with_deseq2 %>%
 	left_join(cayman, by = 'strain') %>%
-	mutate(deseq2_results = map2(deseq2_results, cayman_annotations, \(x, y) {
-		if (!all(y$locus_tag %in% x$locus_tag)) {
-			warning('fuck')
-		}
-		x <- left_join(x, y, by = 'locus_tag') %>%
+	left_join(lociinfo, by = 'strain') %>%
+	mutate(deseq2_results = pmap(list(deseq2_results, cayman_annotations, lociinfoo), \(x, y, z) {
+		dim_y_before <- dim(y)[1]
+		y <- inner_join(y, z, by = c("locus_tag" = "X5"))
+		dim_y_after <- dim(y)[1]
+		stopifnot(dim_y_before == dim_y_after)
+		x <- left_join(x, y, by = c('gene_name' = "X1")) %>%
 			as_tibble()
+		stopifnot((x %>% filter(!is.na(family)) %>% dim() %>% magrittr::extract2(1)) == dim_y_after)
 		return(x)		
 	}))
 
@@ -263,7 +303,7 @@ tmp <- alldata_with_deseq2_final %>%
 	ungroup() %>%
 	select(strain, deseq2_results) %>%
 	unnest(cols = c(deseq2_results)) %>%
-	select(strain, baseMean, log2FoldChange, padj, gene_name, locus_tag, family, FUNCTION_AT_DESTINATION_1, mucin_related) %>%
+	select(strain, baseMean, log2FoldChange, padj, gene_name, locus_tag.x, locus_tag.y, X9, X12, family, FUNCTION_AT_DESTINATION_1, mucin_related) %>%
 	filter(mucin_related == "Yes") %>%
 	mutate(group = case_when(
 		log2FoldChange > 0 & padj < 0.05 ~ "sign. upregulated",
@@ -288,12 +328,126 @@ ggsave(
 	height = 7.5
 )
 
-tmp %>%
-	mutate(strain = factor(strain, levels = unique(strain))) %>%
-	filter(group == "sign. upregulated") %>%
-	complete(family, strain, fill = list(log2FoldChange = NA)) %>%
-	pivot_wider(
-		id_cols = family, names_from = strain, values_from = log2FoldChange, values_fill = NA, values_fn = list(log2FoldChange = mean)
+
+families_2B <- c("GH2", "GH92", "GH20", "GH31", "GH29", "GH97", "GH95", "CBM32", "GH36", "GH35", 
+  "GH33", "GH42", "GH130", "GH18", "GH16", "GH109", "CBM51", "GH110", "GH84", 
+  "GH27", "GH89", "GH123", "GH85", "GH136", "GH112")
+
+dat <- alldata_with_deseq2_final %>%
+	ungroup() %>%
+	select(strain, deseq2_results) %>%
+	unnest(cols = c(deseq2_results)) %>%
+	filter(baseMean != 0) %>%
+	select(strain, baseMean, log2FoldChange, padj, gene_name, locus_tag.x, locus_tag.y, X9, X12, family, FUNCTION_AT_DESTINATION_1, mucin_related) %>%
+	#filter(padj < 0.05) %>%
+	inner_join(data.frame(family = families_2B)) %>%
+	mutate(family = factor(family, levels = families_2B)) %>%
+	mutate(
+		`Expression\ndifferences` = case_when(
+			log2FoldChange > 0 & padj < 0.05 ~ "upregulated",
+			log2FoldChange < 0 & padj < 0.05 ~ "downregulated",
+			TRUE ~ "not diff. regulated"
+		)
+	) %>%
+	mutate(
+		`Expression\ndifferences` = factor(`Expression\ndifferences`, levels = c("upregulated", "downregulated", "not diff. regulated"))
+	) %>%
+	mutate(
+		strain = case_when(
+			strain == "H_hathewayi_DSM13479" ~ "Hungatella hathewayi (DSM13479)",
+			strain == "E_tayi_DSM26961" ~ "Eisenbergiella tayi (DSM26961)"
+		)
 	)
 
-#
+t_test_res <- dat %>%
+	group_by(strain) %>%
+	summarise(
+		t_test_p = if (n() > 2) t.test(log2FoldChange, alternative = "greater")$p.value else NA_real_
+	) %>%
+	ungroup() %>%
+	mutate(t_test_p_adj = p.adjust(t_test_p, method = "BH"))
+
+p <- ggplot() + 
+	geom_hline(
+		yintercept = 0, linetype = "solid", color = "black", alpha = 0.2
+		) +
+	#geom_point(position = position_jitterdodge(jitter.width = 0.5, jitter.height = 0, dodge.width = 0.5)) +
+	geom_point(data = dat, aes(x = family, y = log2FoldChange, alpha = `Expression\ndifferences`)) +
+	geom_point(data = dat %>% anti_join(tibble(`Expression\ndifferences` = "not diff. regulated")), aes(x = family, y = log2FoldChange, color = `Expression\ndifferences`), shape = 1, size = 3) +
+	theme_presentation() + 
+	theme(
+		axis.text.x = element_text(angle = 45,  hjust = 1, size = 7),
+		axis.text.y = element_text(size = 7)
+		) +
+	scale_color_manual(values = c("upregulated" = "red", "downregulated" = "blue", "not diff. regulated" = "grey")) +
+	scale_alpha_manual(values = c("upregulated" = 0.125, "downregulated" = 0.125, "not diff. regulated" = 0.125)) +
+	facet_wrap(.~strain, ncol = 1) +
+	guides(alpha = "none") +
+	ylab("Fold change (log2)") + 
+    theme(
+        legend.position = "bottom",          # Place legend at the bottom
+        legend.direction = "horizontal",     # Make legend horizontal
+        legend.box = "vertical"              # Stack legend entries vertically
+    ) +
+    guides(color = guide_legend(ncol = 1))  +
+	ylim(c(-5.5, 8.5))
+
+ggsave(
+	plot = p,
+	filename = here("scripts", "revisions_aditions", "rnaseq", "plots", "FCs_per_gene_and_family.pdf"),
+	width = 3.25,
+	height = 3.25
+)	
+
+# Also try random effects modelling
+library(lme4)
+library(lmerTest)
+llm_dat <- alldata_with_deseq2_final %>%
+	ungroup() %>%
+	select(strain, deseq2_results) %>%
+	unnest(cols = c(deseq2_results)) %>%
+	filter(baseMean != 0) %>%
+	select(strain, family, X2) %>%
+	#filter(padj < 0.05) %>%
+	inner_join(data.frame(family = families_2B)) %>%
+	mutate(family = factor(family, levels = families_2B)) %>%
+	#mutate(gene_name = str_replace(gene_name, "-gene", '-rna'))  %>%
+	filter(!is.na(family)) %>%
+	left_join(
+		tpmdata %>% 
+			select(strain, data) %>% 
+			unnest()
+		, by = c("strain", 'X2' = 'gene_name')	
+	) %>%
+	pivot_longer(-c(strain, X2, family), names_to = "rep", values_to = "TPM") %>%
+	dplyr::rename(gene_name = X2) %>%
+	# Some notes
+	# For H. hathewayi, control_rep3 is all NAs (we kicked it out). 
+	# TODO: Filter this once data is in long (further down)
+	filter(!is.na(TPM)) %>%
+	mutate(sample_type = ifelse(str_detect(rep, "TREATMENT"), 'With mucin', 'Without mucin')) %>%
+	group_by(strain, family, gene_name) %>%
+	mutate(TPM_scaled = scale(TPM)[, 1]) 
+
+llm_res <- llm_dat %>%
+	group_by(strain) %>%
+	nest() %>%
+	mutate(lme_res_version1 = map(
+		data, \(x) {
+			x <- x %>%
+				lmer(TPM ~ sample_type + (1 | gene_name), data = .)
+			return(x)
+		}
+	)) %>%
+	mutate(lme_res_version2 = map(
+		data, \(x) {
+			x <- x %>%
+				lmer(TPM ~ sample_type + (1 | family) + (1 | gene_name), data = .)
+			return(x)
+		}
+	))
+
+
+# expression ~ mucin_condition + (1 | CAzyme_family) + (1 | gene)
+
+

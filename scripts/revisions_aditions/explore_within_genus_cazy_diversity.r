@@ -153,7 +153,7 @@ for (ge in
     heatmap_plot <- ggplot(now) +
     geom_tile(data = now[now$metric=="prevalence", ] %>% mutate(prevalence = value), aes(x = cazy_family, y = mOTU_ID, fill = prevalence)) +
     theme_presentation() +
-    coord_fixed(.65) +
+    coord_fixed(.8) +
     theme(
         axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
         axis.title.x = element_blank(),
@@ -188,5 +188,5 @@ all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 
     )
 })
 ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
-, filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 5, height = 7.5)
+, filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 4.5, height = 6.5)
 

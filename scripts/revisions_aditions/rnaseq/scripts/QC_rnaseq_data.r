@@ -33,13 +33,26 @@ star_summary_all <- read_tsv("../results/star_summary_all.tsv", col_names = TRUE
 	)  %>%
 	mutate(
 		treatment = case_when(
-			treatment == "CONTROL" ~ "medium",
-			treatment == "TREATMENT" ~ "medium + mucin"
-		))
+			treatment == "CONTROL" ~ "Without mucin",
+			treatment == "TREATMENT" ~ "With mucin"
+		)) %>%
+	mutate(treatmant = factor(treatment, levels = c("Without mucin", "With mucin"))) %>%
+	mutate(
+		strain = case_when(
+			species == "E_tayi" ~ "Eisenbergiella tayi (DMS26961)",
+			species == "H_hathewayi" ~ "Hungatella hathewayi (DMS13479)",
+		)
+	) %>%
+	mutate(
+		species = case_when(
+			species == "E_tayi" ~ "Eisenbergiella tayi",
+			species == "H_hathewayi" ~ "Hungatella hathewayi",
+		)
+	)	
 
 p0.9 <- ggplot() +
-	geom_point(data = star_summary_all, aes(x = treatment, y = total_reads, color = species, shape = replicate)) +
-	facet_grid(.~species) +
+	geom_point(data = star_summary_all, aes(x = treatment, y = total_reads, shape = replicate)) +
+	facet_grid(.~strain) +
 	theme_presentation() +
 	ylab("Total num reads") +
 	theme(
@@ -53,8 +66,8 @@ p0.9 <- ggplot() +
 
 
 p1 <- ggplot() +
-	geom_point(data = star_summary_all, aes(x = treatment, y = aligned_percentage, color = species, shape = replicate)) +
-	facet_grid(.~species) +
+	geom_point(data = star_summary_all, aes(x = treatment, y = aligned_percentage, shape = replicate)) +
+	facet_grid(.~strain) +
 	theme_presentation() +
 	ylab("% Aligned reads") +
 	theme(
@@ -67,8 +80,8 @@ p1 <- ggplot() +
 	NULL
 
 p1.1 <- ggplot() +
-	geom_point(data = star_summary_all, aes(x = treatment, y = aligned_uniquely_percentage, color = species, shape = replicate)) +
-	facet_grid(.~species) +
+	geom_point(data = star_summary_all, aes(x = treatment, y = aligned_uniquely_percentage, shape = replicate)) +
+	facet_grid(.~strain) +
 	theme_presentation() +
 	ylab("% Aligned reads\n(uniquely)") +
 	theme(
@@ -80,8 +93,8 @@ p1.1 <- ggplot() +
 	NULL
 
 p2 <- ggplot() +
-	geom_point(data = star_summary_all, aes(x = treatment, y = mismatch_percentage, color = species, shape = replicate)) +
-	facet_grid(.~species) +
+	geom_point(data = star_summary_all, aes(x = treatment, y = mismatch_percentage, shape = replicate)) +
+	facet_grid(.~strain) +
 	theme_presentation() +
 	ylab("% mismatches") +
 	theme(
@@ -95,6 +108,6 @@ p2 <- ggplot() +
 ggsave(
 	filename = "../plots/star_summary_all.pdf",
 	plot = p0.9 + p1 + p1.1 + p2 + plot_layout(ncol = 1, guides = 'collect'),
-	width = 8,
+	width = 6.75,
 	height = 8
 )

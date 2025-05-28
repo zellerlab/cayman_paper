@@ -148,5 +148,5 @@ for (medium in unique(data$media)) {
         guides(color = guide_legend(ncol = 1)) +
         NULL
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 2.4, height = 2.9)
+    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 2.4, height = 2.6)
 }

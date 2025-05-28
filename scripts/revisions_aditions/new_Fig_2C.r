@@ -146,17 +146,45 @@ substrateNsBymOTU <- substrateNsBymOTU %>%
 # z-scores
 substrateNsBymOTU[, !colnames(substrateNsBymOTU) == "mOTU_ID"] <- apply(substrateNsBymOTU[, !colnames(substrateNsBymOTU) == "mOTU_ID"], 2, scale)
 substrateNsBymOTU <- substrateNsBymOTU %>%
-  inner_join(pcoa %>% ungroup() %>% select(mOTU_ID))
+  inner_join(pcoa %>% ungroup() %>% select(mOTU_ID)) %>%
 
 
 pcoa_o <- pcoa %>%
   inner_join(substrateNsBymOTU, by = 'mOTU_ID')
 
+plots <- list()
 for (substrate in c(
-  "",
-  "",
-  ""
-))
+  "DF",
+  "Mucin",
+  "GAG"
+)) {
+  tmp <- pcoa_o %>%
+      mutate(substrate = get(substrate)) %>%
+      mutate(`Substrate enrichment` = case_when(
+        substrate > 3 ~ 3,
+        substrate < -3 ~ -3,
+        TRUE ~ substrate
+      )) 
+  p <- ggplot(tmp) +
+    geom_point(aes(x = `PCo 1`, y = `PCo 2`, color = `Substrate enrichment`), alpha = 0.2) +
+    theme_presentation() +
+      scale_color_gradient2(
+        low = "#0000FF",    # Blue for negative values
+        mid = "#FFFFFF",    # White for midpoint (0)
+        high = "#FF0000",   # Red for positive values
+        midpoint = 0,       # Set the midpoint at 0
+        limits = c(-3, 3)   # Cap the scale at -3 and 3
+    ) +
+    ggtitle(substrate)
+    NULL
+  plots[[length(plots) + 1]] <- p
+}
+
+ggsave(
+  plot = wrap_plots(plots) +
+    plot_layout(ncol = 3, guides = "collect"),
+  filename = here('figures', "revisions", "Fig2_C_new_substrate_enrichments.pdf"), width = 8.5, height = 2.45
+)
 
 
 # cor_plots <- list()

@@ -148,69 +148,82 @@ substrateNsBymOTU[, !colnames(substrateNsBymOTU) == "mOTU_ID"] <- apply(substrat
 substrateNsBymOTU <- substrateNsBymOTU %>%
   inner_join(pcoa %>% ungroup() %>% select(mOTU_ID))
 
-cor_plots <- list()
-pcoa_o <- pcoa
-colnames(pcoa_o)[colnames(pcoa_o) %in% c('PCo 1', "PCo 2")] <- c("PCo_1", "PCo_2")
-pc_name_map <- c("PCo_1" = "PCo 1", "PCo_2" = "PCo 2")
-for (category in (substrateNsBymOTU %>% ungroup() %>% select(-c(mOTU_ID, Unknown)) %>% colnames())) {
-  for (pcname in c("PCo_1", "PCo_2")) {
-      tmp <- pcoa_o %>%
-        ungroup() %>%
-        select(mOTU_ID, {pcname}) %>%
-        left_join(substrateNsBymOTU %>% select(mOTU_ID, all_of(category)), by = 'mOTU_ID')
-      p <- ggplot() +
-        geom_point(data = tmp, aes_string(x = pcname, y = category), alpha = 0.2) +
-        theme_presentation()  +
-        xlab(pc_name_map[[pcname]]) +
-        ylab(category) +
-        theme(
-          axis.text.x = element_text(size = 6),
-          axis.text.y = element_text(size = 6),
-          axis.title.x = element_text(size = 7),
-          axis.title.y = element_text(size = 7),
-        ) +
-        NULL
-      # get cor
-      basecor <- stats::cor(tmp %>% select(all_of(c(pcname,category))) %>% as.data.frame() %>% as.matrix(), method = 'spearman')[1,2]
-      if (basecor > 0) {
-          p <- p + annotate(
-              'text',
-              x = -Inf, y = Inf,                     # Top-right corner
-              label = str_c("r = ", round(basecor, 2)),
-              size = 2.5,
-              hjust = -0.1, vjust = 1.1             # Adjust alignment to keep it inside the plot
-          )
-      } else {
-          p <- p + annotate(
-              'text',
-              x = Inf, y = Inf,                    # Top-left corner
-              label = str_c("r = ", round(basecor, 2)),
-              size = 2.5,
-              hjust = 1.1, vjust = 1.1            # Adjust alignment to keep it inside the plot
-          )
-      }
-      cor_plots[[length(cor_plots) + 1]] <- 
-      list(
-        plot = p,
-        cor = basecor,
-        category = category,
-        pcname = pcname
-      )
-  }
-}
-cor_plots <- enframe(cor_plots) %>%
-  mutate(
-    cor = map_dbl(value, \(x) x$cor),
-    category = map_chr(value, \(x) x$category),
-    pcname = map_chr(value, \(x) x$pcname),
-    plot = map(value, \(x) x$plot)
-  ) %>%
-  arrange(desc(abs(cor))) %>%
-  head(6) 
 
-library(patchwork)
-ggsave(
-  plot = wrap_plots(cor_plots$plot) +
-    plot_layout(ncol = 5, guides = "collect"),
-  filename = here('figures', "revisions", "Fig2_C_new_substrate_correlations.pdf"), width = 4, height = 2.75
-)
+pcoa_o <- pcoa %>%
+  inner_join(substrateNsBymOTU, by = 'mOTU_ID')
+
+for (substrate in c(
+  "",
+  "",
+  ""
+))
+
+
+# cor_plots <- list()
+# pcoa_o <- pcoa
+# colnames(pcoa_o)[colnames(pcoa_o) %in% c('PCo 1', "PCo 2")] <- c("PCo_1", "PCo_2")
+# pc_name_map <- c("PCo_1" = "PCo 1", "PCo_2" = "PCo 2")
+# for (category in (substrateNsBymOTU %>% ungroup() %>% select(-c(mOTU_ID, Unknown)) %>% colnames())) {
+#   for (pcname in c("PCo_1", "PCo_2")) {
+#       tmp <- pcoa_o %>%
+#         ungroup() %>%
+#         select(mOTU_ID, {pcname}) %>%
+#         left_join(substrateNsBymOTU %>% select(mOTU_ID, all_of(category)), by = 'mOTU_ID')
+#       p <- ggplot() +
+#         geom_point(data = tmp, aes_string(x = pcname, y = category), alpha = 0.2) +
+#         theme_presentation()  +
+#         xlab(pc_name_map[[pcname]]) +
+#         ylab(category) +
+#         theme(
+#           axis.text.x = element_text(size = 6),
+#           axis.text.y = element_text(size = 6),
+#           axis.title.x = element_text(size = 7),
+#           axis.title.y = element_text(size = 7),
+#         ) +
+#         NULL
+#       # get cor
+#       basecor <- stats::cor(tmp %>% select(all_of(c(pcname,category))) %>% as.data.frame() %>% as.matrix(), method = 'spearman')[1,2]
+#       if (basecor > 0) {
+#           p <- p + annotate(
+#               'text',
+#               x = -Inf, y = Inf,                     # Top-right corner
+#               label = str_c("r = ", round(basecor, 2)),
+#               size = 2.5,
+#               hjust = -0.1, vjust = 1.1             # Adjust alignment to keep it inside the plot
+#           )
+#       } else {
+#           p <- p + annotate(
+#               'text',
+#               x = Inf, y = Inf,                    # Top-left corner
+#               label = str_c("r = ", round(basecor, 2)),
+#               size = 2.5,
+#               hjust = 1.1, vjust = 1.1            # Adjust alignment to keep it inside the plot
+#           )
+#       }
+#       cor_plots[[length(cor_plots) + 1]] <- 
+#       list(
+#         plot = p,
+#         cor = basecor,
+#         category = category,
+#         pcname = pcname
+#       )
+#   }
+# }
+# cor_plots <- enframe(cor_plots) %>%
+#   mutate(
+#     cor = map_dbl(value, \(x) x$cor),
+#     category = map_chr(value, \(x) x$category),
+#     pcname = map_chr(value, \(x) x$pcname),
+#     plot = map(value, \(x) x$plot)
+#   ) %>%
+#   arrange(desc(abs(cor))) %>%
+#   head(6) 
+
+# library(patchwork)
+# ggsave(
+#   plot = wrap_plots(cor_plots$plot) +
+#     plot_layout(ncol = 5, guides = "collect"),
+#   filename = here('figures', "revisions", "Fig2_C_new_substrate_correlations.pdf"), width = 4, height = 2.75
+# )
+
+

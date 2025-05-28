@@ -367,6 +367,7 @@ t_test_res <- dat %>%
 	ungroup() %>%
 	mutate(t_test_p_adj = p.adjust(t_test_p, method = "BH"))
 
+library(ggrepel)
 p <- ggplot() + 
 	geom_hline(
 		yintercept = 0, linetype = "solid", color = "black", alpha = 0.2
@@ -374,6 +375,7 @@ p <- ggplot() +
 	#geom_point(position = position_jitterdodge(jitter.width = 0.5, jitter.height = 0, dodge.width = 0.5)) +
 	geom_point(data = dat, aes(x = family, y = log2FoldChange, alpha = `Expression\ndifferences`)) +
 	geom_point(data = dat %>% anti_join(tibble(`Expression\ndifferences` = "not diff. regulated")), aes(x = family, y = log2FoldChange, color = `Expression\ndifferences`), shape = 1, size = 3) +
+	geom_text_repel(data = dat %>% anti_join(tibble(`Expression\ndifferences` = "not diff. regulated")), aes(x = family, y = log2FoldChange, label = locus_tag.x), size = 1.5, segment.size = 0.25) +
 	theme_presentation() + 
 	theme(
 		axis.text.x = element_text(angle = 45,  hjust = 1, size = 7),
@@ -434,18 +436,33 @@ llm_res <- llm_dat %>%
 	nest() %>%
 	mutate(lme_res_version1 = map(
 		data, \(x) {
+			mm <- x$TPM[x$TPM > 0]
+			mm <- min(mm)
+
 			x <- x %>%
-				lmer(TPM ~ sample_type + (1 | gene_name), data = .)
+				lmer(scale(log10(TPM + mm)) ~ sample_type + (1 | gene_name), data = .)
+				#lmer(TPM ~ sample_type + (1 | gene_name), data = .)
 			return(x)
 		}
 	)) %>%
 	mutate(lme_res_version2 = map(
 		data, \(x) {
+			mm <- x$TPM[x$TPM > 0]
+			mm <- min(mm)	
+
 			x <- x %>%
-				lmer(TPM ~ sample_type + (1 | family) + (1 | gene_name), data = .)
+				lmer(scale(log10(TPM + mm)) ~ sample_type + (1 | family) + (1 | gene_name), data = .)
+				#lmer(TPM ~ sample_type + (1 | gene_name), data = .)
 			return(x)
 		}
 	))
+
+for (strain in llm_res$strain) {
+	for (version in c("version1", "version2")) {
+		print(str_c("strain: ", strain, " (", version, ")"))
+		print(summary(llm_res[[str_c("lme_res_", version)]][[which(llm_res$strain == strain)]])$coefficients)
+	}
+}
 
 
 # expression ~ mucin_condition + (1 | CAzyme_family) + (1 | gene)

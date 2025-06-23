@@ -3,7 +3,7 @@ library(here)
 source(here('scripts', 'utils.r'))
 
 # almeida_cazy_annotations_aggregated.tsv is generated and written at the beginning of fig_2.r
-almeidaCAZyAggregated <- read_tsv(here('data', "almeida_cazy_annotations_aggregated.tsv"))
+#almeidaCAZyAggregated <- read_tsv(here('data', "almeida_cazy_annotations_aggregated.tsv"))
 tree.filtered <- read.tree(here('data', 'tree.genus.ncbi.filtered.nwk'))
 
 tmp <- almeidaCAZyAggregated %>%

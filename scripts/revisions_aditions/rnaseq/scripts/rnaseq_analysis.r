@@ -391,7 +391,8 @@ p <- ggplot() +
         legend.direction = "horizontal",     # Make legend horizontal
         legend.box = "vertical"              # Stack legend entries vertically
     ) +
-    guides(color = guide_legend(ncol = 1))  +
+    guides(color = guide_legend(ncol = 1)) +
+	scale_x_discrete(drop = FALSE) +
 	ylim(c(-5.5, 8.5))
 
 ggsave(

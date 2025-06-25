@@ -4,14 +4,14 @@
 ##############
 ##############
 
-`library(tidyverse)
+library(tidyverse)
 library(here)
 library(readxl)
 # library(pheatmap)
 library(ComplexHeatmap)
 library(ggembl)
 library(ggnewscale)
-library(patchwork)`
+library(patchwork)
 source(here('scripts', 'utils.r'))
 
 pseudocount <- 1
@@ -100,7 +100,7 @@ for (ge in
         filter(str_detect(Genus, ge)) %>%
         group_by(cazy_family) %>%
         #filter(any(prevalence > 0.2)) %>% 
-        filter(mean(prevalence > 0.5) > 0.2) %>% 
+        #filter(mean(prevalence > 0.5) > 0.2) %>% 
         select(mOTU_ID, Species, cazy_family, prevalence, var, cov) %>%
         pivot_longer(c(prevalence, var), names_to = "metric", values_to = "value") %>%
         identity() %>%
@@ -110,7 +110,8 @@ for (ge in
         {
             if (only_mucin) {
                 (.) %>% 
-                    inner_join(data.frame(cazy_family = a)) %>%
+                    #inner_join(data.frame(cazy_family = a)) %>%
+                    inner_join(data.frame(cazy_family = b$Family)) %>%
                     mutate(cazy_family = factor(cazy_family, levels = a))
             } else {
                 (.)

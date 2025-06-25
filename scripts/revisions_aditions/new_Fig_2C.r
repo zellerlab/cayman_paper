@@ -1,5 +1,7 @@
 library(here)
 library(ggrepel)
+library(tidyverse)
+library(patchwork)
 source(here('scripts', 'utils.r'))
 
 # motus3.0_taxonomy <- read_tsv(here('data', "motus3.0_taxonomy.tsv"))
@@ -146,7 +148,7 @@ substrateNsBymOTU <- substrateNsBymOTU %>%
 # z-scores
 substrateNsBymOTU[, !colnames(substrateNsBymOTU) == "mOTU_ID"] <- apply(substrateNsBymOTU[, !colnames(substrateNsBymOTU) == "mOTU_ID"], 2, scale)
 substrateNsBymOTU <- substrateNsBymOTU %>%
-  inner_join(pcoa %>% ungroup() %>% select(mOTU_ID)) %>%
+  inner_join(pcoa %>% ungroup() %>% select(mOTU_ID))
 
 
 pcoa_o <- pcoa %>%
@@ -166,11 +168,11 @@ for (substrate in c(
         TRUE ~ substrate
       )) 
   p <- ggplot(tmp) +
-    geom_point(aes(x = `PCo 1`, y = `PCo 2`, color = `Substrate enrichment`), alpha = 0.2) +
+    geom_point(aes(x = `PCo 1`, y = `PCo 2`, color = `Substrate enrichment`), size = 0.5) +
     theme_presentation() +
       scale_color_gradient2(
         low = "#0000FF",    # Blue for negative values
-        mid = "#FFFFFF",    # White for midpoint (0)
+        mid = "lightgrey",    # White for midpoint (0)
         high = "#FF0000",   # Red for positive values
         midpoint = 0,       # Set the midpoint at 0
         limits = c(-3, 3)   # Cap the scale at -3 and 3
@@ -179,6 +181,17 @@ for (substrate in c(
     NULL
   plots[[length(plots) + 1]] <- p
 }
+
+plots[[2]] <- plots[[2]] + theme(
+  axis.ticks.y = element_blank(),
+  axis.text.y = element_blank(),
+  axis.title.y = element_blank()
+)
+plots[[3]] <- plots[[3]] + theme(
+  axis.ticks.y = element_blank(),
+  axis.text.y = element_blank(),
+  axis.title.y = element_blank()
+)
 
 ggsave(
   plot = wrap_plots(plots) +

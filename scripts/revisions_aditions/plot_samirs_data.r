@@ -91,8 +91,8 @@ data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_backgrou
     mutate(strain = str_c(species, "_", strainID)) %>%
     mutate(
         strain = case_when(
-            strain == "Eisenbergiella tayi_DSM26961" ~ "Eisenbergiella tayi (DSM26961)",
-            strain == "Hungatella hathewayi_DSM13479" ~ "Hungatella hathewayi (DSM13479)",
+            strain == "Eisenbergiella tayi_DSM26961" ~ "E. tayi (DSM26961)",
+            strain == "Hungatella hathewayi_DSM13479" ~ "H. hathewayi (DSM13479)",
         )
     ) %>%
     mutate(
@@ -112,7 +112,7 @@ for (medium in unique(data$media)) {
         geom_vline(
             data = data.frame(
                 xintercept = c(19, 20),
-                strain = c("Eisenbergiella tayi (DSM26961)", "Hungatella hathewayi (DSM13479)")
+                strain = c("E. tayi (DSM26961)", "H. hathewayi (DSM13479)")
             ),
             aes(xintercept = xintercept),
             alpha = 0.5,
@@ -129,7 +129,8 @@ for (medium in unique(data$media)) {
         xlab("time [h]") +
         ylab("OD") +
         scale_y_log10(
-            breaks = c(0.01, 0.05, 0.1, 0.5, 1)
+            breaks = c(0.01, 0.1, 1),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
             ) +
         scale_color_manual(
             values = c(
@@ -140,13 +141,20 @@ for (medium in unique(data$media)) {
         # put legend to bottom in horizontal fasghion
         theme(
             axis.text.x = element_text(size = 7),
-            axis.text.y = element_text(size = 7),
-            legend.position = "bottom",          # Place legend at the bottom
-            legend.direction = "horizontal",     # Make legend horizontal
-            legend.box = "vertical"      
+            axis.text.y = element_text(size = 7)
+            #legend.position = "bottom",          # Place legend at the bottom
+            #legend.direction = "horizontal",     # Make legend horizontal
+            #legend.box = "vertical"      
         ) +     
         guides(color = guide_legend(ncol = 1)) +
+        annotation_logticks(
+            sides = 'l', 
+            size = 0.25,
+            short = unit(.5,"mm"),
+            mid = unit(1.25,"mm"),
+            long = unit(1.75,"mm")            
+            )   +
         NULL
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 2.4, height = 2.6)
+    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 3.8*0.9, height = 3.8*0.8)
 }

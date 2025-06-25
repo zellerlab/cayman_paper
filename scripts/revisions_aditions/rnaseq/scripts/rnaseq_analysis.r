@@ -122,8 +122,8 @@ alldata_with_deseq2 <- alldata %>%
 		names(na) <- da$controlrep
 		tx_object <- tximport(na, 
 						type = "salmon", 
-						tx2gene = tx,
-						countsFromAbundance = "lengthScaledTPM")		
+						tx2gene = tx
+		)
 		rownames(da) <- colnames(tx_object$counts)
 
 		sample_info <- data.frame(condition = da$control_or_treatment)

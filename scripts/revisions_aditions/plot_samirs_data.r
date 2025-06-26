@@ -25,40 +25,15 @@ df <- data.frame(
         "Hungatella hathewayi", 
         "Eisenbergiella tayi", 
         "Eisenbergiella tayi", 
-        "Eisenbergiella tayi", 
-        "Eisenbergiella massiliensis", 
-        "Coprobacter fastidiosus", 
-        "Coprobacter secundus", 
-        "Akkermansia muciniphila", 
-        "Pseudoflavonifractor capillosus", 
-        "Eubacterium eligens", 
-        "Roseburia intestinalis", 
-        "Roseburia inulinivorans", 
-        "Dorea formicigenerans", 
-        "Dorea longicatena",
-        "Clostridioides difficile",
-        "Bacteroides uniformis",
-        "Phocaeicola vulgatus"),
+        "Eisenbergiella tayi"
+        ),
     purpose = c(
         "assayed", 
         "assayed", 
         "assayed", 
         "assayed", 
         "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "pos ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl",
-        "neg ctrl",
-        'unclear',
-        'unclear')
+        "assayed")
 ) %>%
     distinct() %>%
     mutate(col = case_when(
@@ -69,13 +44,8 @@ df <- data.frame(
     ))
 df$col <- paste0(df$col, "40")
 
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_1-1.xlsx') %>%
-# Based on email from Samir from February, Run4-2 should be correct for Eisenbergiella and Hungatella
-data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx') %>%
+#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx') %>%
+data <- read_tsv('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1_subset.tsv') %>%
     mutate(time_h = as.numeric(time)) %>%
     rename(well = Variable) %>%
     inner_join(data.frame(species = c("Eisenbergiella tayi", "Hungatella hathewayi"))) %>%

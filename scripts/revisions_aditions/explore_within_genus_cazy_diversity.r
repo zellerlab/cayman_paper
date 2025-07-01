@@ -110,8 +110,7 @@ for (ge in
         {
             if (only_mucin) {
                 (.) %>% 
-                    #inner_join(data.frame(cazy_family = a)) %>%
-                    inner_join(data.frame(cazy_family = b$Family)) %>%
+                    inner_join(data.frame(cazy_family = a)) %>%
                     mutate(cazy_family = factor(cazy_family, levels = a))
             } else {
                 (.)

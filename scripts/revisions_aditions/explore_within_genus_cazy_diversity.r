@@ -110,7 +110,8 @@ for (ge in
         arrange(desc(n)) %>%
         head(25) %>%
         pull(Genus) %>%
-        map_chr(\(x) str_split(x, " ")[[1]][2])
+        map_chr(\(x) str_split(x, " ")[[1]][2]) %>%
+        setdiff(map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1]))
 ) {
     print(str_c("Processing ", ge, "..."))
     now <- family_variance_within_motus %>%

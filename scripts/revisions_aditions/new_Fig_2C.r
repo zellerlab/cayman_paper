@@ -95,7 +95,9 @@ ggsave(plot = ggplot() + geom_point(data = pcoa, aes(x = `PCo 1`, y = `PCo 2`, c
                                    "Bacteroides uniformis",
                                    #"Bacteroides fragilis",
                                    "Eisenbergiella tayi",
-                                   "Hungatella hathewayi"
+                                   "Hungatella hathewayi",
+                                  "Ruminococcus bromii",
+                                  "[Ruminococcus] gnavus"                                   
                                    #"Dialister succinatiphilus",
                                    #"Veillonella atypica",
                                    #"Eggerthella lenta",
@@ -114,7 +116,7 @@ ggsave(plot = ggplot() + geom_point(data = pcoa, aes(x = `PCo 1`, y = `PCo 2`, c
                       }
                     })) %>%
                     mutate(species = ifelse(!kickBool, "", species)),
-                  aes(x = `PCo 1`, y = `PCo 2`, label = species), color = 'black', size = 3.5, min.segment.length = unit(0.5, 'lines'), max.overlaps = Inf) +
+                  aes(x = `PCo 1`, y = `PCo 2`, label = species), color = 'black', size = 3.5, min.segment.length = 0, force = 1, nudge_x = 0.5, max.overlaps = Inf) +
   theme_classic() +
   scale_color_manual(values = phylum_color_map) +
   theme(legend.text = element_text(size = 10)), filename = here('figures', "revisions", "Fig2_C_new.pdf"), width = 5.75, height = 3.5)

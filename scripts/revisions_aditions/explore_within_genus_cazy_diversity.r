@@ -89,9 +89,14 @@ family_variance_within_motus <- genome_level %>%
 
 only_mucin <- TRUE
 all_plots <- list()
+# bla <- unique(family_variance_within_motus$Genus)
+# bla <- bla[!str_detect(bla, 'sedis')]
+# bla <- bla[!str_detect(bla, '^NA')]
+# bla <- map_chr(bla, \(x) str_split(x, " ")[[1]][2])
 for (ge in 
     #c("Bacteroides")
-    map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
+    #map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
+    sort(read.tree(here('data', 'tree.genus.ncbi.filtered.nwk'))$tip.label)
 ) {
     print(str_c("Processing ", ge, "..."))
     now <- family_variance_within_motus %>%
@@ -111,6 +116,7 @@ for (ge in
             if (only_mucin) {
                 (.) %>% 
                     inner_join(data.frame(cazy_family = a)) %>%
+
                     mutate(cazy_family = factor(cazy_family, levels = a))
             } else {
                 (.)
@@ -130,9 +136,9 @@ for (ge in
     column_info_to_add <- now[[column_name]]
     column_info_to_add <- str_replace_all(column_info_to_add, "\\[", "")
     column_info_to_add <- str_replace_all(column_info_to_add, "\\]", "")
-    first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
-    first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
-    column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
+    # first_words <- map_chr(column_info_to_add, \(x) str_split(x, " ")[[1]][1])
+    # first_letters_with_dot <- str_c(str_sub(str_to_title(first_words), 1, 1), ". ")
+    # column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
     base_names <- str_c(column_info_to_add, " [", base_names, "]")
     now[[unit_of_interest]] <- base_names
 
@@ -155,11 +161,11 @@ for (ge in
     theme_presentation() +
     coord_fixed(.8) +
     theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(size = 7),
+        axis.text.y = element_text(size = 6),
         plot.margin = unit(c(0, 0, 0, 0), "cm"),
         legend.position = "bottom",
         legend.direction = "horizontal",
@@ -188,5 +194,5 @@ all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 
     )
 })
 ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
-, filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 4.5, height = 6.5)
+, filename = here('figures', "revisions", "mucin_split_heatmap_ALL.pdf"), width = 6, height = 40, limitsize = FALSE)
 

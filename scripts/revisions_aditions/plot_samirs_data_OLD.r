@@ -69,63 +69,98 @@ df <- data.frame(
     ))
 df$col <- paste0(df$col, "40")
 
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx') %>%
-#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_1-1.xlsx') %>%
-# Based on email from Samir from February, Run4-2 should be correct for Eisenbergiella and Hungatella
-data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx') %>%
-    mutate(time_h = as.numeric(time)) %>%
-    rename(well = Variable) %>%
-    inner_join(data.frame(species = c("Eisenbergiella tayi", "Hungatella hathewayi"))) %>%
-    # Remove 2 noisy measurements
-    anti_join(
-        tibble(
-            plate = c("P1", "P1"),
-            media = c("WCA", "WCA"),
-            time = c(21, 23),
-            well = c("E3", "F3")
-        )
-    ) %>%
-    mutate(strain = str_c(species, "_", strainID)) %>%
-    mutate(
-        strain = case_when(
-            strain == "Eisenbergiella tayi_DSM26961" ~ "E. tayi (DSM26961)",
-            strain == "Hungatella hathewayi_DSM13479" ~ "H. hathewayi (DSM13479)",
-        )
-    ) %>%
-    mutate(
-        condition = case_when(
-            condition == "with_mucin_III_0.5%" ~ "With mucin",
-            condition == "without_mucin" ~ "Without mucin"
-        )
-    ) %>%
-    filter(time <= 30)
 
-# plot mgam growth curves
-for (medium in unique(data$media)) {
-    p <- data %>%
+data_parsed <- list()
+batchid <- 1
+for (data_path in c(
+	'/g/scb/zeller/karcher/cayman_paper/data/data_without_background_v2.xlsx',
+	'/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run2.xlsx',
+	'/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run3.xlsx',
+	'/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_1-1.xlsx',
+	'/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx'
+)) {
+	#data <- read_xlsx('/g/scb/zeller/karcher/cayman_paper/data/data_without_background_Run4_2-1.xlsx') %>%
+	data <- read_xlsx(data_path) %>%
+		mutate(time_h = as.numeric(time)) %>%
+		rename(well = Variable) %>%
+		mutate(
+			species = map_chr(species, \(x) {
+				first_word <- str_split(x, " ")[[1]][1]
+				second_word <- str_split(x, " ")[[1]][2]
+				first_letter_of_first_word <- str_split(first_word, "")[[1]][1]  %>% str_c(". ", sep = "")
+				return(str_c(first_letter_of_first_word, second_word, collapse = ""))
+			})
+		) %>%
+		mutate(strain = str_c(species, "_", strainID)) %>%
+		mutate(batch = batchid) %>%
+		filter(time <= 30) %>%
+		mutate(
+			media = ifelse(media == "mGAM_0.5x", "mGAM", media),
+			condition = ifelse(condition == "with_mucin_0.5%", "with_mucin_II_0.5%", condition)
+		)
+
+    # Fix the different OD values that were added by Samir
+    data$OD <- data$OD_adjusted - min(data$OD_adjusted)
+
+    # Add repliate information explicitly for first batch of experiments (since it's missing from file)
+    if (batchid == 1) {
+        data <- data %>% 
+            group_by(media, plate, time, condition, strainID, species, strain) %>% 
+            nest() %>% 
+            mutate(data = map(data, \(x) x %>% mutate(replicate = 1:dim(.)[1]))) %>% 
+            unnest()
+    }
+
+	data_parsed[[length(data_parsed) + 1 ]] <- data
+ 	batchid <- batchid + 1
+}
+
+data_parsed_bound <- bind_rows(data_parsed) %>%
+	mutate(
+		media = factor(media, levels = sort(unique(media))),
+		condition = factor(condition, levels = sort(unique(condition))),
+		strain = factor(strain, levels = sort(unique(strain))),
+		#batch = factor(batch, levels = sort(unique(batch)))
+        batch = factor(batch, levels = c(1,2,3,4,5))
+	) %>%
+    # We have already recomputed the original OD-values so we can now add a consistent pseudocount
+    select(-OD_adjusted) %>%
+    mutate(OD_adjusted = OD + 0.01)
+
+pdf(file = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/all_growth_curves.pdf", width = 12, height = 12)
+for (medium in unique(data_parsed_bound$media)) {
+    da <- data_parsed_bound %>%
         filter(media == medium) %>%
         mutate(g = str_c(well, plate)) %>%
-        ggplot() +
-        geom_vline(
-            data = data.frame(
-                xintercept = c(19, 20),
-                strain = c("E. tayi (DSM26961)", "H. hathewayi (DSM13479)")
-            ),
-            aes(xintercept = xintercept),
-            alpha = 0.5,
-            linetype = "longdash",
-        ) +        
+        mutate(
+            strain_sel = case_when(
+                str_detect(strain, "DSM26961") ~ "#FFC0CB", 
+                str_detect(strain, "13479") ~ "#FFC0CB", 
+                TRUE ~ "#808080"
+            )
+        )
+    p <- 
+        ggplot(data = da) +
+        # geom_vline(
+        #     data = data.frame(
+        #         xintercept = c(19, 20),
+        #         strain = c("E. tayi (DSM26961)", "H. hathewayi (DSM13479)")
+        #     ),
+        #     aes(xintercept = xintercept),
+        #     alpha = 0.5,
+        #     linetype = "longdash",
+        # ) +        
+        geom_rect(
+            data = da %>% ungroup() %>% select(species, strain, strain_sel) %>% distinct(),
+            aes(fill = strain_sel),
+            xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
+            alpha = 0.3,
+            show.legend = FALSE
+        ) +
         scale_fill_identity() +
         geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
         theme_classic() +
-        facet_wrap(. ~ strain, ncol = 1) +
-        # make facet_wrap text size smaller
-        theme(
-            strip.text = element_text(size = 8)
-        ) +
+        facet_grid(strain ~ batch, drop = FALSE) +
         xlab("time [h]") +
         ylab("OD") +
         scale_y_log10(
@@ -134,10 +169,12 @@ for (medium in unique(data$media)) {
             ) +
         scale_color_manual(
             values = c(
-                "With mucin" = "#8ecc52",
-                "Without mucin" = "#808080"
+                "with_mucin_III_0.5%" = "#8ecc52",
+                "with_mucin_II_0.5%" = "#f2a900",
+                "without_mucin" = "#808080"
             )
         ) +
+        scale_fill_identity() + 
         # put legend to bottom in horizontal fasghion
         theme(
             axis.text.x = element_text(size = 7),
@@ -154,7 +191,15 @@ for (medium in unique(data$media)) {
             mid = unit(1.25,"mm"),
             long = unit(1.75,"mm")            
             )   +
+        ggtitle(medium) +
+        theme(
+            strip.text.x = element_text(size = 8),
+            strip.text.y = element_text(angle = 0, size = 8),
+            plot.title = element_text(size = 20)  # Increase the font size (e.g., 20)
+        ) +
         NULL
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 3.8*0.9, height = 3.8*0.8)
+    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 12, height = 12)
+    print(p)
 }
+dev.off()

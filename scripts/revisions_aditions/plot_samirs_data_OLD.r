@@ -116,18 +116,24 @@ for (data_path in c(
 }
 
 data_parsed_bound <- bind_rows(data_parsed) %>%
+    # We have already recomputed the original OD-values so we can now add a consistent pseudocount
+    select(-OD_adjusted) %>%
+    mutate(OD_adjusted = OD + 0.01) %>%    
+    filter(
+        str_detect(strain, "tayi") | 
+        str_detect(strain, "hathew") |
+        str_detect(strain, "mucini") |
+        str_detect(strain, "secundus")
+    ) %>%
 	mutate(
 		media = factor(media, levels = sort(unique(media))),
 		condition = factor(condition, levels = sort(unique(condition))),
-		strain = factor(strain, levels = sort(unique(strain))),
 		#batch = factor(batch, levels = sort(unique(batch)))
         batch = factor(batch, levels = c(1,2,3,4,5))
-	) %>%
-    # We have already recomputed the original OD-values so we can now add a consistent pseudocount
-    select(-OD_adjusted) %>%
-    mutate(OD_adjusted = OD + 0.01)
+	)
+data_parsed_bound$strain <- factor(data_parsed_bound$strain, levels = sort(unique(data_parsed_bound$strain)))
 
-pdf(file = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/all_growth_curves.pdf", width = 12, height = 12)
+pdf(file = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/all_growth_curves.pdf", width = 12, height = 5)
 for (medium in unique(data_parsed_bound$media)) {
     da <- data_parsed_bound %>%
         filter(media == medium) %>%
@@ -199,7 +205,7 @@ for (medium in unique(data_parsed_bound$media)) {
         ) +
         NULL
     #ggsave(plot = p, filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/mgam_growth_curves.pdf", width = 9, height = 6)
-    ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 12, height = 12)
+    #ggsave(plot = p, filename = str_c("/g/scb/zeller/karcher/cayman_paper/figures/revisions/", medium, "_growth_curves.pdf"), width = 12, height = 5)
     print(p)
 }
 dev.off()

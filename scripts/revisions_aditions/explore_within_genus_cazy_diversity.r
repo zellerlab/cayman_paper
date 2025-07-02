@@ -96,7 +96,21 @@ all_plots <- list()
 for (ge in 
     #c("Bacteroides")
     #map_chr(names(mucin_pathway_colors), \(x) str_split(x, " ")[[1]][1])
-    sort(read.tree(here('data', 'tree.genus.ncbi.filtered.nwk'))$tip.label)
+    #sort(read.tree(here('data', 'tree.genus.ncbi.filtered.nwk'))$tip.label)
+    family_variance_within_motus %>%
+        group_by(mOTU_ID, Genus, Species) %>%
+        filter(prevalence > 0.5) %>%
+        inner_join(data.frame(cazy_family = a)) %>%
+        tally() %>%
+        arrange(desc(n)) %>%
+        group_by(Genus) %>%
+        summarize(n = mean(n)) %>%
+        filter(!str_detect(Genus, "^NA")) %>%
+        filter(!str_detect(Genus, "sedis")) %>%
+        arrange(desc(n)) %>%
+        head(25) %>%
+        pull(Genus) %>%
+        map_chr(\(x) str_split(x, " ")[[1]][2])
 ) {
     print(str_c("Processing ", ge, "..."))
     now <- family_variance_within_motus %>%
@@ -161,11 +175,11 @@ for (ge in
     theme_presentation() +
     coord_fixed(.8) +
     theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 5.5),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(size = 6),
+        axis.text.y = element_text(size = 5.5),
         plot.margin = unit(c(0, 0, 0, 0), "cm"),
         legend.position = "bottom",
         legend.direction = "horizontal",
@@ -194,5 +208,5 @@ all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 
     )
 })
 ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
-, filename = here('figures', "revisions", "mucin_split_heatmap_ALL.pdf"), width = 6, height = 40, limitsize = FALSE)
+, filename = here('figures', "revisions", "mucin_split_heatmap_ALL.pdf"),   width = 8.27, height = 11.69)
 

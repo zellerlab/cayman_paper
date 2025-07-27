@@ -378,11 +378,11 @@ p <- ggplot() +
 	geom_text_repel(data = dat %>% anti_join(tibble(`Expression\ndifferences` = "not diff. regulated")), aes(x = family, y = log2FoldChange, label = locus_tag.x), size = 1.5, segment.size = 0.25) +
 	theme_presentation() + 
 	theme(
-		axis.text.x = element_text(angle = 45,  hjust = 1, size = 7),
+		axis.text.x = element_text(angle = 45,  hjust = 1, size = 6),
 		axis.text.y = element_text(size = 7)
 		) +
 	scale_color_manual(values = c("upregulated" = "red", "downregulated" = "blue", "not diff. regulated" = "grey")) +
-	scale_alpha_manual(values = c("upregulated" = 0.125, "downregulated" = 0.125, "not diff. regulated" = 0.125)) +
+	scale_alpha_manual(values = c("upregulated" = 0.175, "downregulated" = 0.175, "not diff. regulated" = 0.175)) +
 	facet_wrap(.~strain, ncol = 1) +
 	guides(alpha = "none") +
 	ylab("Fold change (log2)") + 

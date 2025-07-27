@@ -45,7 +45,7 @@ motus_level_agg <- read_tsv(here("data/motus_level_mean_cazy_abundances.tsv")) %
     mutate(Species_simple = apply(str_split_fixed(Species, " ", n = 4)[, 2:3], 1, \(x) str_c(x, collapse = " "))) %>%
     mutate(mOTU_ID = str_split_fixed(mOTU_ID, "_", n = 5)[, 4]) %>%
     mutate(`log10_#_genomes` = log10(number_genomes)) %>%
-    filter(number_genomes > 10)
+    filter(number_genomes > 3)
 genome_level <- read_tsv(here("data/genome_level_cazy_abundances.tsv")) %>%
     mutate(mOTU_ID = str_split_fixed(mOTU_ID, "_", n = 5)[, 4])
 
@@ -175,7 +175,6 @@ for (ge in
     NULL
 
     library(patchwork)
-    ggsave(plot = heatmap_plot, filename = here('figures', "revisions", str_c(ge, "_split_heatmap.pdf")), width = 8, height = 4)
     all_plots[[ge]] <- heatmap_plot
 }
 all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 )], \(x) {

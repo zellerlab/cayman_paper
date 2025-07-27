@@ -18,58 +18,6 @@ get_auc_v2 <- function(x, y) {
     return(AUC)
 }
 
-df <- data.frame(
-    species = c(
-        "Hungatella hathewayi", 
-        "Hungatella hathewayi", 
-        "Hungatella hathewayi", 
-        "Eisenbergiella tayi", 
-        "Eisenbergiella tayi", 
-        "Eisenbergiella tayi", 
-        "Eisenbergiella massiliensis", 
-        "Coprobacter fastidiosus", 
-        "Coprobacter secundus", 
-        "Akkermansia muciniphila", 
-        "Pseudoflavonifractor capillosus", 
-        "Eubacterium eligens", 
-        "Roseburia intestinalis", 
-        "Roseburia inulinivorans", 
-        "Dorea formicigenerans", 
-        "Dorea longicatena",
-        "Clostridioides difficile",
-        "Bacteroides uniformis",
-        "Phocaeicola vulgatus"),
-    purpose = c(
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "assayed", 
-        "pos ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl", 
-        "neg ctrl",
-        "neg ctrl",
-        'unclear',
-        'unclear')
-) %>%
-    distinct() %>%
-    mutate(col = case_when(
-        purpose == "assayed" ~ "#006400",
-        purpose == "pos ctrl" ~ "#00008B",
-        purpose == "neg ctrl" ~ "#808080",
-        purpose == 'unclear' ~ "#FFFFFF"
-    ))
-df$col <- paste0(df$col, "40")
-
-
 data_parsed <- list()
 batchid <- 1
 for (data_path in c(
@@ -210,41 +158,22 @@ for (medium in unique(data_parsed_bound$media)) {
 }
 dev.off()
 
-
-# Now condense as discussed in slack...
 da <- data_parsed_bound %>%
     anti_join(data.frame(media = "LBA")) %>%
     inner_join(
         data.frame(
             media = c(
-                #"M17",
                 "M17",
-
                 "GMM+LAB",
-
-                #"SB",
                 "SB",
-
-                #"WCA",
                 "WCA",
-
-                #"mGAM",
                 "mGAM"
             ),
             batch = c(
-
-                #"1",
                 "2", 
-
                 "1",
-
-                #"2",
                 "3",
-
-                #"2",
                 "3",
-
-                #"2",
                 "3"
             )
         )
@@ -278,9 +207,6 @@ da <- data_parsed_bound %>%
             "DSM26961",
             # C. secundus
             "DSM28864/177"
-            #"NT5213",
-            #"NT5335",
-            #"DSM108217"
         ))
     ) %>%
     mutate(g = str_c(well, plate)) %>%

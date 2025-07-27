@@ -263,41 +263,6 @@ alldata_with_deseq2_final <- alldata_with_deseq2 %>%
 		return(x %>% arrange(padj))
 	}))
 
-# Get volcano plot
-alldata_with_deseq2_final <- alldata_with_deseq2_final %>%
-	mutate(VP = map2(deseq2_results, strain, \(x, ss) {
-		p <- ggplot() +
-			geom_point(data = x %>% filter(!mucin_related == "Yes"), aes(x = log2FoldChange, y = -log10(padj)), color = 'grey', alpha = 0.5) +
-			geom_point(data = x %>% filter(mucin_related == "Yes"), aes(x = log2FoldChange, y = -log10(padj)), color = 'red', alpha = 0.75) +
-			geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
-			#geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "blue") +
-			theme_presentation() +
-			xlab("log2 Fold Change") +
-			ylab("-log10 adjusted p-value") +
-			ggtitle(str_c(ss, "\nlog2FC > 0 -> expressed more highly in +mucin cond.", collapse = ""))
-	}))
-
-alldata_with_deseq2_final <- alldata_with_deseq2_final %>%
-	mutate(VP_cut = map2(deseq2_results, strain, \(x, ss) {
-		x <- x %>% filter(padj > 1E-50)
-		p <- ggplot() +
-			geom_point(data = x %>% filter(!mucin_related == "Yes"), aes(x = log2FoldChange, y = -log10(padj)), color = 'grey', alpha = 0.5) +
-			geom_point(data = x %>% filter(mucin_related == "Yes"), aes(x = log2FoldChange, y = -log10(padj)), color = 'red', alpha = 0.75) +
-			geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
-			#geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "blue") +
-			theme_presentation() +
-			xlab("log2 Fold Change") +
-			ylab("-log10 adjusted p-value") +
-			ggtitle(str_c(ss, "\nlog2FC > 0 -> expressed more highly in +mucin cond.\nOnly genes with padj > 1E-50", collapse = ""))
-	}))
-
-
-# save plots
-devnull <- pmap(list(alldata_with_deseq2_final$VP, alldata_with_deseq2_final$VP_cut, alldata_with_deseq2_final$strain), \(x, x_cut, ss) {
-				ggsave(plot = x + x_cut + plot_layout(ncol = 1), filename = paste0("../plots/volcano_", ss, ".pdf"), width = 6, height = 10)
-				return(x)
-			})
-
 ## Dig into the top overexpressed genes per strain by hand, for Georg (all hail the king)
 tmp <- alldata_with_deseq2_final %>%
 	ungroup() %>%
@@ -311,22 +276,6 @@ tmp <- alldata_with_deseq2_final %>%
 		TRUE ~ "not_significant"
 	))
 
-p <- tmp %>%
-	group_by(strain, group) %>%
-	tally() %>%
-	mutate(group = factor(group, levels = c("sign. upregulated", "sign. downregulated", "not_significant"))) %>%
-	ggplot() +
-	geom_bar(aes(x = group, y = n, fill = group), stat = "identity") +
-	facet_wrap(~ strain, ncol = 2) +
-	theme_presentation() +
-	theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggsave(
-	plot = p,
-	filename = "../plots/overexpressed_genes_per_strain.pdf",
-	width = 7.5,
-	height = 7.5
-)
 
 
 families_2B <- c("GH2", "GH92", "GH20", "GH31", "GH29", "GH97", "GH95", "CBM32", "GH36", "GH35", 

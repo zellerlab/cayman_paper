@@ -85,7 +85,8 @@ family_variance_within_motus <- genome_level %>%
         # cov = sd(copy_number) / mean(copy_number)) %>%
         var = var(present),
         cov = sd(present) / mean(present)) %>%        
-    filter(num_genomes > 10)
+    filter(num_genomes > 3)
+    #identity()
 
 only_mucin <- TRUE
 all_plots <- list()
@@ -135,6 +136,9 @@ for (ge in
     column_info_to_add <- str_replace(column_info_to_add, "[a-zA-Z]+ ", first_letters_with_dot)
     base_names <- str_c(column_info_to_add, " [", base_names, "]")
     now[[unit_of_interest]] <- base_names
+    # Fix C. secundus
+    now[[unit_of_interest]] <- ifelse(now[[unit_of_interest]] == "B. sp. [03666]", "C. secundus [03666]", 
+                                      now[[unit_of_interest]])
 
     tmp <- now %>% 
         filter(metric == 'prevalence') %>%
@@ -190,4 +194,3 @@ all_plots[1:(length(all_plots) - 1 )] <- map(all_plots[1:(length(all_plots) - 1 
 ggsave(plot = wrap_plots(all_plots, ncol = 1) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
 , filename = here('figures', "revisions", "mucin_split_heatmap.pdf"), width = 4.5, height = 6.5)
 
-ad

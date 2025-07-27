@@ -236,14 +236,15 @@ da <- data_parsed_bound %>%
 
 da$medium_batch <- factor(da$medium_batch, levels = c('mGAM', sort(unique(da$medium_batch))[!sort(unique(da$medium_batch)) %in% c('mGAM')]))
 
-p <-   ggplot(data = da) +
-        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
+p <-   ggplot(data = da %>% filter(media == "WCA") %>% filter(OD > 0.01) %>% rbind(da %>% filter(media == "WCA") %>% select(strain, medium_batch, condition, g) %>% distinct() %>% mutate(OD = 0.7*(10^-3)) %>% mutate(time_h = 0))) +
+        geom_hline(yintercept = (10^-2), linetype = 'dashed') + 
+        geom_line(aes(x = time_h, y = OD, color = condition, group = g)) +
         theme_classic() +
         facet_grid(strain ~ medium_batch) +
         xlab("Time [h]") +
         ylab("OD") +
         scale_y_log10(
-            breaks = c(0.01, 0.1, 1),
+            breaks = c(0.001, 0.01, 0.1, 1),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
             ) +
         scale_color_manual(
@@ -270,20 +271,20 @@ p <-   ggplot(data = da) +
             long = unit(1.75,"mm")            
             )   +
         #ggtitle(medium) +
-        geom_rect(
-            data = da %>%
-                ungroup() %>%
-                select(species, media, medium_batch, strain) %>%
-                distinct() %>%
-                mutate(col = ifelse(
-                    (str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA",
-                    "#FFC0CB40",
-                    NA
-                )),
-                # Make it such that the background of each tile is colored
-            aes(fill = col),
-            xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
-        ) +
+        # geom_rect(
+        #     data = da %>%
+        #         ungroup() %>%
+        #         select(species, media, medium_batch, strain) %>%
+        #         distinct() %>%
+        #         mutate(col = ifelse(
+        #             (str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA",
+        #             "#FFC0CB40",
+        #             NA
+        #         )),
+        #         # Make it such that the background of each tile is colored
+        #     aes(fill = col),
+        #     xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
+        # ) +
         scale_fill_identity() +
         theme(
             strip.text.x = element_text(size = 7),
@@ -298,7 +299,7 @@ p <-   ggplot(data = da) +
 ggsave(
     plot = p, 
     filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/condensed_growth_curves.pdf", 
-    width = 6, 
+    width = 2.75, 
     height = 4,
     units = "in"
 )

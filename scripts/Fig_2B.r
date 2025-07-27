@@ -108,4 +108,4 @@ p <- ggplot(mucin_degradation_pathway_abundances %>%
         legend.position = 'bottom',
         legend.text = element_text(size = 10))
 
-ggsave(plot = p, filename = here("figures", "Fig2_B.pdf"), width = 5.5, height = 5.5)
+ggsave(plot = p, filename = here("figures", "Fig2_B.pdf"), width = 7, height = 3.75)

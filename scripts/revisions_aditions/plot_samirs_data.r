@@ -236,7 +236,7 @@ da <- data_parsed_bound %>%
 
 da$medium_batch <- factor(da$medium_batch, levels = c('mGAM', sort(unique(da$medium_batch))[!sort(unique(da$medium_batch)) %in% c('mGAM')]))
 
-p <-   ggplot(data = da %>% filter(media == "WCA") %>% filter(OD > 0.01) %>% rbind(da %>% filter(media == "WCA") %>% select(strain, medium_batch, condition, g) %>% distinct() %>% mutate(OD = 0.7*(10^-3)) %>% mutate(time_h = 0))) +
+p <-   ggplot(data = da %>% filter(media == "WCA") %>% filter(OD > 0.01) %>% rbind(da %>% filter(media == "WCA") %>% select(strain, medium_batch, condition, g) %>% distinct() %>% mutate(OD = 0.7*(10^-4)) %>% mutate(time_h = 0))) +
         geom_hline(yintercept = (10^-2), linetype = 'dashed') + 
         geom_line(aes(x = time_h, y = OD, color = condition, group = g)) +
         theme_classic() +

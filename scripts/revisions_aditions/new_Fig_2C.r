@@ -84,7 +84,7 @@ pcoa <- pcoa %>%
                                      #mutate(phylum = ifelse(genus == "Collinsella", "Actinobacteria", phylum)) %>%
                                      mutate(`PCo 2` = -1 * `PCo 2`) %>%
                                      mutate(`PCo 1` = 1 * `PCo 1`)
-ggsave(plot = ggplot() + geom_point(data = pcoa, aes(x = `PCo 1`, y = `PCo 2`, color = phylum), alpha = 0.5) +
+ggsave(plot = ggplot() + geom_point(data = pcoa %>% filter(phylum != "Synergistetes"), aes(x = `PCo 1`, y = `PCo 2`, color = phylum), alpha = 0.5) +
   #geom_text(aes(label = genus, y = yOffset)) +
   geom_text_repel(data = pcoa %>%
                     mutate(kickBool = pmap_lgl(list(`PCo 1`, `PCo 2`, species), function(po1, po2, g) {
@@ -95,9 +95,9 @@ ggsave(plot = ggplot() + geom_point(data = pcoa, aes(x = `PCo 1`, y = `PCo 2`, c
                                    "Bacteroides uniformis",
                                    #"Bacteroides fragilis",
                                    "Eisenbergiella tayi",
-                                   "Hungatella hathewayi",
-                                  "Ruminococcus bromii",
-                                  "[Ruminococcus] gnavus"                                   
+                                   "Hungatella hathewayi"
+                                  #"Ruminococcus bromii",
+                                  #"[Ruminococcus] gnavus"                                   
                                    #"Dialister succinatiphilus",
                                    #"Veillonella atypica",
                                    #"Eggerthella lenta",
@@ -116,9 +116,10 @@ ggsave(plot = ggplot() + geom_point(data = pcoa, aes(x = `PCo 1`, y = `PCo 2`, c
                       }
                     })) %>%
                     mutate(species = ifelse(!kickBool, "", species)),
-                  aes(x = `PCo 1`, y = `PCo 2`, label = species), color = 'black', size = 3.5, min.segment.length = 0, force = 1, nudge_x = 0.5, max.overlaps = Inf) +
+                  aes(x = `PCo 1`, y = `PCo 2`, label = species), color = 'black', size = 3.5, min.segment.length = 0, force = 1, nudge_x = 0.2, max.overlaps = Inf) +
   theme_classic() +
   scale_color_manual(values = phylum_color_map) +
+  xlim(c(-0.35, 0.45)) +
   theme(legend.text = element_text(size = 10)), filename = here('figures', "revisions", "Fig2_C_new.pdf"), width = 5.75, height = 3.5)
 
 
@@ -179,7 +180,8 @@ for (substrate in c(
         midpoint = 0,       # Set the midpoint at 0
         limits = c(-3, 3)   # Cap the scale at -3 and 3
     ) +
-    ggtitle(substrate)
+    ggtitle(substrate) +
+    xlim(c(-0.35, 0.45)) +
     NULL
   plots[[length(plots) + 1]] <- p
 }

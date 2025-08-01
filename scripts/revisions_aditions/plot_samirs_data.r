@@ -66,7 +66,7 @@ for (data_path in c(
 data_parsed_bound <- bind_rows(data_parsed) %>%
     # We have already recomputed the original OD-values so we can now add a consistent pseudocount
     select(-OD_adjusted) %>%
-    mutate(OD_adjusted = OD + 0.01) %>%    
+    #mutate(OD_adjusted = OD + 0.01) %>%    
     filter(
         str_detect(strain, "tayi") | 
         str_detect(strain, "hathew") |
@@ -159,15 +159,38 @@ da <- data_parsed_bound %>%
 
 da$medium_batch <- factor(da$medium_batch, levels = c('mGAM', sort(unique(da$medium_batch))[!sort(unique(da$medium_batch)) %in% c('mGAM')]))
 
-p <-   ggplot(data = da) +
-        geom_line(aes(x = time_h, y = OD_adjusted, color = condition, group = g)) +
+da <- da %>% 
+    #filter(media == "WCA") %>% 
+    select(
+        -c(time, plate, well, batch, replicate)
+    ) %>%
+    filter(OD > 0.01 | media != 'WCA') %>% 
+    rbind(
+        da %>% 
+            filter(media == "WCA") %>% 
+            select(strain, strainID, species, medium_batch, condition, g) %>% 
+            distinct() %>% 
+            mutate(OD = 0) %>% 
+            mutate(time_h = 0)
+    )
+da <- da %>%
+    mutate(growth_inferred = OD < 0.01)
+
+p <-  ggplot() +
+        geom_abline(
+            slope = 0, intercept = log10(0.01), linetype = 'dashed', alpha = 0.3
+        ) +
+        #geom_line(data = da %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        #geom_line(data = da %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        geom_line(data = da, aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
         theme_classic() +
         facet_grid(strain ~ medium_batch) +
         xlab("Time [h]") +
         ylab("OD") +
         scale_y_log10(
-            breaks = c(0.01, 0.1, 1),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
+            breaks = c(0.0001, 0.0001, 0.001, 0.01, 0.1, 1),
+            labels = scales::trans_format("log10", scales::math_format(10^.x)),
+            limits = c(0.00005, 1.5)
             ) +
         scale_color_manual(
             values = c(

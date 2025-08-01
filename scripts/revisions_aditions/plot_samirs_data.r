@@ -6,6 +6,7 @@ library(zoo)
 #library(ggembl)
 
 rna_selected_strains <- read_csv('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/selected_strains_for_RNA_seq.csv')
+startingOD <- 0.7 * 10^-4
 
 get_auc_v1 <- function(x, y) {
     id <- order(x)

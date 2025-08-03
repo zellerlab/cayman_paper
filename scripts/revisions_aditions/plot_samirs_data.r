@@ -158,9 +158,18 @@ da <- data_parsed_bound %>%
     unnest() %>%
     mutate(medium_batch = media)
 
+set.seed(1)
+da <- da %>%
+    group_by(species, media, condition, g) %>% nest() %>% group_by(species, media, condition) %>%
+    sample_n(3) %>%
+    unnest() %>%
+    group_by(
+        media
+    )
+
 da$medium_batch <- factor(da$medium_batch, levels = c('mGAM', sort(unique(da$medium_batch))[!sort(unique(da$medium_batch)) %in% c('mGAM')]))
 
-da <- da %>% 
+daa <- da %>% 
     #filter(media == "WCA") %>% 
     select(
         -c(time, plate, well, batch, replicate)
@@ -173,17 +182,176 @@ da <- da %>%
             distinct() %>% 
             mutate(OD = 0) %>% 
             mutate(time_h = 0)
-    )
-da <- da %>%
+    ) %>%
     mutate(growth_inferred = OD < 0.01)
+
+# daa <- da %>% 
+#     #filter(media == "WCA") %>% 
+#     filter(OD > 0.01) %>% rbind(da %>% 
+#     #filter(media == "WCA") %>% 
+#     select(strain, strainID,  species, medium_batch, condition, g) %>% distinct() %>% mutate(OD = 0.7*(10^-4)) %>% mutate(time_h = 0)) %>%
+#     mutate(
+#         growth_inferred = OD <= 0.01
+#     )
+
+get_x_at_y <- function(model, y_value) {
+  # Extract coefficients from the linear model
+  intercept <- coef(model)[1]  # Intercept (b)
+  slope <- coef(model)[2]      # Slope (m)
+  
+  # Calculate x using the formula: x = (y - b) / m
+  x_value <- (y_value - intercept) / slope
+  
+  return(x_value)
+}
+
+fitwindowsize <- 3
+te <- daa %>%
+#daa %>%
+    #filter(strainID == "DSM13479") %>% filter(condition == "Without mucin") %>% filter(media == "WCA") %>%
+    filter(media == "WCA") %>% filter(condition == "Without mucin") %>%
+    filter(!growth_inferred) %>%
+    group_by(condition, media, strainID,  medium_batch, species, strain, g)  %>%
+    #tally() %>%
+    nest() %>%
+    # mutate(
+    #     first_5_measurements_after_LOD = map(data, \(x) {
+    #         x <- x  %>%
+    #             arrange(time_h) %>%
+    #             head(2)
+    #         return(x)
+    #     }
+    #     )
+    # ) %>%
+    mutate(
+        windows = map(data, \(x) {
+            windowss <- list()
+            for (startindex in c(1:10)) {
+                tmp <- x[startindex:dim(x)[1], ] %>%
+                    head(fitwindowsize)
+                windowss[[length(windowss) + 1]] <- tmp
+                names(windowss)[length(windowss)] <- str_c("window_", startindex)
+            }
+            return(windowss)
+        }
+        )
+    ) %>%
+    mutate(linfit = map(
+        windows, \(x) {
+            rsqs <- list()
+            fits <- list()
+            slopes <- list()
+            for (window in x) {
+                if (any(is.na(window))) {
+                    fits[[length(fits) + 1]] <- NA
+                    rsqs[[length(rsqs) + 1]] <- NA
+                    slopes[[length(slopes) + 1]] <- NA
+                    next
+                }
+                fit <- lm(log10(OD) ~ time_h, data = window)    
+                #fits <- c(fits, fit)
+                fits[[length(fits) + 1]] <- fit
+                goodness_of_fit <- summary(fit)$r.squared
+                if (is.na(goodness_of_fit)) {
+                    goodness_of_fit <- 0
+                }
+                rsqs[[length(rsqs) + 1]] <- goodness_of_fit
+                slopes[[length(slopes) + 1]] <- fit$coefficients[2]
+
+            }
+            if (length(rsqs) == 0) {
+                return(NA)
+            }
+            if (!any(rsqs > 0.8)) {   
+                return(NA)
+            }
+            tmp <- data.frame(
+                i = 1:length(x), r = unlist(rsqs), s = unlist(slopes)
+            ) %>%
+                mutate(good = r>0.8) %>%
+                filter(good) %>%
+                arrange(desc(s))
+            
+            index_of_best_rqs <- tmp$i[1]
+            #print(tmp)
+            
+            fit <- fits[[index_of_best_rqs]]
+            print(fit)
+            return(fit)
+        }
+    )) %>%
+    filter(!is.na(linfit)) %>%
+    mutate(
+    slope = map_dbl(linfit, \(x) {
+        return(x$coefficients[2])
+    }),
+    intercept = map_dbl(linfit, \(x) {
+        return(x$coefficients[1])
+    }),
+    xintercept = map_dbl(linfit, \(x) {
+        return(-x$coefficients[1] / x$coefficients[2])
+    }),
+    x_at_startOD = map_dbl(linfit, \(x) {
+        return(get_x_at_y(x, log10(0.7*(10^-4))))
+    })
+    ) %>%
+    #filter(str_detect(strain, "DSM13479")) %>%
+    #pull(first_5_measurements_after_LOD) %>%
+    #magrittr::extract2(1) %>%
+    identity() %>%
+    select(condition, media,  strainID, species, strain, g, medium_batch, x_at_startOD, slope, intercept) %>%
+    # filter(g != "G2P3") %>%
+    # filter(abs(x_at_startOD) < 100) %>%
+    filter(slope > 0) %>%
+    identity()
+
+
+daa <- daa %>% 
+    filter(!growth_inferred | media != 'WCA') %>% 
+    rbind(
+    daa %>% 
+        filter(growth_inferred & media == "WCA") %>%
+        ungroup() %>%
+        select(strain, media, species, strainID, medium_batch, condition, g) %>%
+        distinct() %>%
+        mutate(OD = 0.7*(10^-4)) %>%
+        mutate(time_h = 0) %>%
+    group_by(strainID, species, strain, medium_batch, condition, g) %>%
+    nest() %>%
+    ungroup() %>%
+    left_join(te, by = c('condition', 'strainID', "species", 'strain', "g", "medium_batch")) %>%
+    mutate(data = map2(
+        data, x_at_startOD, \(dat, x_at_start) {
+            if (is.na(x_at_start)) {
+                return(dat)
+            }
+            if (x_at_start < 0) {
+                return(dat)
+            } else {
+                dat <- rbind(
+                    dat, 
+                    data.frame(
+                        media = dat$media[1],
+                        OD = 0.7*(10^-4),
+                        time_h = x_at_start
+                    )
+                )
+                return(dat)
+            }
+        }
+    )) %>%
+    unnest() %>%
+    select(-x_at_startOD)
+)
+
 
 p <-  ggplot() +
         geom_abline(
             slope = 0, intercept = log10(0.01), linetype = 'dashed', alpha = 0.3
         ) +
-        #geom_line(data = da %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        #geom_line(data = da %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), linetype = 'dashed') +
         #geom_line(data = da %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
-        geom_line(data = da, aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        geom_line(data = daa, aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
         theme_classic() +
         facet_grid(strain ~ medium_batch) +
         xlab("Time [h]") +

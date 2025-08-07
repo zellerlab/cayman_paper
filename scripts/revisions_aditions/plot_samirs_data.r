@@ -8,6 +8,36 @@ library(zoo)
 rna_selected_strains <- read_csv('/g/scb/zeller/karcher/cayman_paper/scripts/revisions_aditions/selected_strains_for_RNA_seq.csv')
 startingOD <- 0.7 * 10^-4
 
+interpolate_points <- function(data, n = 100) {
+ 
+    # Ensure the data is sorted by x
+    data <- data %>% arrange(time_h)
+    
+    # Perform interpolation
+    interpolated <- approx(
+        x = data$time_h,
+        y = log10(data$OD + startingOD),
+        n = n,  # Number of points to interpolate
+        method = "linear"  # Linear interpolation
+    )
+
+    # Create a new data frame with the interpolated values for time_h and OD and all the other values in data as before
+    clns <- colnames(data)
+    clns <- clns[!clns %in% c("time_h", "OD")]
+
+    # Replicate the other columns for each interpolated point
+    other_columns <- data[1, clns, drop = FALSE]  # Take the first row's other columns
+    other_columns <- other_columns[rep(1, length(interpolated$x)), ]  # Replicate for each interpolated point
+
+    # Combine interpolated values with replicated columns
+    interpolated_data <- cbind(
+    time_h = interpolated$x,
+    OD = interpolated$y,
+    other_columns
+    )
+    return(interpolated_data)
+}
+
 get_auc_v1 <- function(x, y) {
     id <- order(x)
     AUC <- sum(diff(x[id])*rollmean(y[id],2))
@@ -65,9 +95,7 @@ for (data_path in c(
 }
 
 data_parsed_bound <- bind_rows(data_parsed) %>%
-    # We have already recomputed the original OD-values so we can now add a consistent pseudocount
     select(-OD_adjusted) %>%
-    #mutate(OD_adjusted = OD + 0.01) %>%    
     filter(
         str_detect(strain, "tayi") | 
         str_detect(strain, "hathew") |
@@ -84,17 +112,16 @@ data_parsed_bound$strain <- factor(data_parsed_bound$strain, levels = sort(uniqu
 
 da <- data_parsed_bound %>%
     anti_join(data.frame(media = "LBA")) %>%
+    # Choose batches with smallest intra-batch variability over replicates
     inner_join(
         data.frame(
             media = c(
-                "M17",
                 "GMM+LAB",
                 "SB",
                 "WCA",
                 "mGAM"
             ),
             batch = c(
-                "2", 
                 "1",
                 "3",
                 "3",
@@ -102,13 +129,11 @@ da <- data_parsed_bound %>%
             )
         )
     ) %>%
-    # remove WCA growth data, batch 3, for DSM26961 and DSM13479... 
     filter(!(media == "WCA" & batch == "3" & strainID %in% c("DSM26961", "DSM13479"))) %>%
-    # ... and replace with the data from batch 5
     rbind(
         data_parsed_bound %>%
             filter(media == "WCA" & batch == "5" & strainID %in% c("DSM26961", "DSM13479")) %>%
-            # Remove faulty measuremnents
+            # Remove faulty measurements
             anti_join(
                 tibble(
                     plate = c("P1", "P1"),
@@ -141,7 +166,6 @@ da <- data_parsed_bound %>%
             "with_mucin_III_0.5%"
         )),
     ) %>%
-    #filter(!condition == "with_mucin_III_0.5%") %>%
     mutate(condition = ifelse(
         str_detect(condition, "with_mucin"),
         "With mucin",
@@ -170,7 +194,6 @@ da <- da %>%
 da$medium_batch <- factor(da$medium_batch, levels = c('mGAM', sort(unique(da$medium_batch))[!sort(unique(da$medium_batch)) %in% c('mGAM')]))
 
 daa <- da %>% 
-    #filter(media == "WCA") %>% 
     select(
         -c(time, plate, well, batch, replicate)
     ) %>%
@@ -183,16 +206,10 @@ daa <- da %>%
             mutate(OD = 0) %>% 
             mutate(time_h = 0)
     ) %>%
-    mutate(growth_inferred = OD < 0.01)
-
-# daa <- da %>% 
-#     #filter(media == "WCA") %>% 
-#     filter(OD > 0.01) %>% rbind(da %>% 
-#     #filter(media == "WCA") %>% 
-#     select(strain, strainID,  species, medium_batch, condition, g) %>% distinct() %>% mutate(OD = 0.7*(10^-4)) %>% mutate(time_h = 0)) %>%
-#     mutate(
-#         growth_inferred = OD <= 0.01
-#     )
+    mutate(growth_inferred = OD < 0.01) %>%
+    filter(
+        !(strain == "H. hathewayi\n(DSM13479)" & OD > 0.01 & OD < 0.015)
+    )
 
 get_x_at_y <- function(model, y_value) {
   # Extract coefficients from the linear model
@@ -207,22 +224,10 @@ get_x_at_y <- function(model, y_value) {
 
 fitwindowsize <- 3
 te <- daa %>%
-#daa %>%
-    #filter(strainID == "DSM13479") %>% filter(condition == "Without mucin") %>% filter(media == "WCA") %>%
     filter(media == "WCA") %>% filter(condition == "Without mucin") %>%
     filter(!growth_inferred) %>%
     group_by(condition, media, strainID,  medium_batch, species, strain, g)  %>%
-    #tally() %>%
     nest() %>%
-    # mutate(
-    #     first_5_measurements_after_LOD = map(data, \(x) {
-    #         x <- x  %>%
-    #             arrange(time_h) %>%
-    #             head(2)
-    #         return(x)
-    #     }
-    #     )
-    # ) %>%
     mutate(
         windows = map(data, \(x) {
             windowss <- list()
@@ -295,13 +300,8 @@ te <- daa %>%
         return(get_x_at_y(x, log10(0.7*(10^-4))))
     })
     ) %>%
-    #filter(str_detect(strain, "DSM13479")) %>%
-    #pull(first_5_measurements_after_LOD) %>%
-    #magrittr::extract2(1) %>%
     identity() %>%
     select(condition, media,  strainID, species, strain, g, medium_batch, x_at_startOD, slope, intercept) %>%
-    # filter(g != "G2P3") %>%
-    # filter(abs(x_at_startOD) < 100) %>%
     filter(slope > 0) %>%
     identity()
 
@@ -344,14 +344,72 @@ daa <- daa %>%
     select(-x_at_startOD)
 )
 
+daa <- daa  %>%
+    select(-growth_inferred) %>%
+    group_by(
+        media, condition, strainID, species, strain, g
+    ) %>%
+    nest() %>%
+    mutate(data = map2(data,  media, \(x, me) {
+        # if (me == "WCA") {
+        #     return(x)
+        # }
+        x <- interpolate_points(x)
+        return(x)
+    })) %>%
+    unnest() %>%
+    # REverse the pseudocount and log-transform in interpolate_pooints
+    mutate(OD = 10^OD - startingOD) %>%
+    mutate(growth_inferred = OD < 0.01)
 
 p <-  ggplot() +
         geom_abline(
             slope = 0, intercept = log10(0.01), linetype = 'dashed', alpha = 0.3
         ) +
-        #geom_line(data = da %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), linetype = 'dashed') +
-        #geom_line(data = da %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
-        geom_line(data = daa, aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        geom_line(data = da, aes(x = time_h, y = OD + 0.01, color = condition, group = g)) +
+        theme_classic() +
+        facet_grid(strain ~ medium_batch) +
+        xlab("Time [h]") +
+        ylab("OD") +
+        scale_y_log10(
+            breaks = c(0.001, 0.01, 0.1, 1),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+            ) +
+        scale_color_manual(
+            values = c(
+                "With mucin" = "#8ecc52",
+                "Without mucin" = "#808080"
+            )
+        ) +
+        # put legend to bottom in horizontal fasghion
+        theme(
+            axis.text.x = element_text(size = 7),
+            axis.text.y = element_text(size = 7)
+        ) +     
+        guides(color = guide_legend(ncol = 1)) +
+        annotation_logticks(
+            sides = 'l', 
+            size = 0.25,
+            short = unit(.5,"mm"),
+            mid = unit(1.25,"mm"),
+            long = unit(1.75,"mm")            
+            )   +
+        scale_fill_identity() +
+        theme(
+            strip.text.x = element_text(size = 7),
+            strip.text.y = element_text(angle = 0, size = 7),
+            plot.title = element_text(size = 20),  # Increase the font size (e.g., 20)
+            legend.position = "bottom",          # Place legend at the bottom
+            legend.direction = "horizontal"     # Make legend horizontal            
+        ) +
+        NULL
+
+p_wca <-  ggplot() +
+        geom_abline(
+            slope = 0, intercept = log10(0.01), linetype = 'dashed', alpha = 0.3
+        ) +
+        geom_line(data = daa %>% filter(media == "WCA") %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), linetype = 'dashed', show.legend = FALSE) +
+        geom_line(data = daa %>% filter(media == "WCA") %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), show.legend = FALSE) +        
         theme_classic() +
         facet_grid(strain ~ medium_batch) +
         xlab("Time [h]") +
@@ -363,12 +421,10 @@ p <-  ggplot() +
             ) +
         scale_color_manual(
             values = c(
-                #"with_mucin_III_0.5%" = "#8ecc52",
                 "With mucin" = "#8ecc52",
                 "Without mucin" = "#808080"
             )
         ) +
-        # put legend to bottom in horizontal fasghion
         theme(
             axis.text.x = element_text(size = 7),
             axis.text.y = element_text(size = 7)
@@ -384,21 +440,6 @@ p <-  ggplot() +
             mid = unit(1.25,"mm"),
             long = unit(1.75,"mm")            
             )   +
-        #ggtitle(medium) +
-        geom_rect(
-            data = da %>%
-                ungroup() %>%
-                select(species, media, medium_batch, strain) %>%
-                distinct() %>%
-                mutate(col = ifelse(
-                    (str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA",
-                    "#FFC0CB40",
-                    NA
-                )),
-                # Make it such that the background of each tile is colored
-            aes(fill = col),
-            xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
-        ) +
         scale_fill_identity() +
         theme(
             strip.text.x = element_text(size = 7),
@@ -411,9 +452,86 @@ p <-  ggplot() +
         NULL
 
 ggsave(
-    plot = p, 
+    plot = p + p_wca + plot_layout(widths = c(3, 0.79)) +
+        plot_annotation(tag_levels = 'a'),  # This adds 'a' and 'b' to the panels
     filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/condensed_growth_curves.pdf", 
-    width = 6, 
+    width = 8, 
     height = 4,
     units = "in"
 )
+
+flll <- data.frame(
+    strain = c(
+        "H. hathewayi\n(DSM13479)",
+        "E. tayi\n(DSM26961)"
+    ),
+    xinterc = c(
+        20, 
+        18
+    )
+)
+
+p <-  ggplot() +
+        geom_abline(
+            slope = 0, intercept = log10(0.01), linetype = 'dashed', alpha = 0.3
+        ) +
+        geom_line(data = daa %>% filter((str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA") %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), linetype = 'dashed') +
+        geom_line(data = daa %>% filter((str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA") %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
+        theme_classic() +
+        facet_grid(strain ~ medium_batch) +
+        xlab("Time [h]") +
+        ylab("OD") +
+        geom_vline(
+            data = flll, 
+            aes(xintercept = xinterc), 
+            linetype = 'dashed', 
+            color = 'black', 
+            size = 0.3,
+            alpha = 0.3
+        ) +
+        scale_y_log10(
+            breaks = c(0.0001, 0.0001, 0.001, 0.01, 0.1, 1),
+            labels = scales::trans_format("log10", scales::math_format(10^.x)),
+            limits = c(0.00005, 1.5)
+            ) +
+        scale_color_manual(
+            values = c(
+                "With mucin" = "#8ecc52",
+                "Without mucin" = "#808080"
+            )
+        ) +
+        theme(
+            axis.text.x = element_text(size = 7),
+            axis.text.y = element_text(size = 7)
+            #legend.position = "bottom",          # Place legend at the bottom
+            #legend.direction = "horizontal",     # Make legend horizontal
+            #legend.box = "vertical"      
+        ) +     
+        guides(color = guide_legend(ncol = 1)) +
+        annotation_logticks(
+            sides = 'l', 
+            size = 0.25,
+            short = unit(.5,"mm"),
+            mid = unit(1.25,"mm"),
+            long = unit(1.75,"mm")            
+            )   +
+        scale_fill_identity() +
+        theme(
+            strip.text.x = element_text(size = 7),
+            strip.text.y = element_text(angle = 0, size = 7),
+            plot.title = element_text(size = 20),  # Increase the font size (e.g., 20)
+            legend.position = "bottom",          # Place legend at the bottom
+            legend.direction = "horizontal"     # Make legend horizontal            
+            # put legend at bottom
+        ) +
+        NULL
+
+
+ggsave(
+    plot = p, 
+    filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/new_Fig3B.pdf", 
+    width = 2.3*1.3, 
+    height = 3*1.5,
+    units = "in"
+)
+

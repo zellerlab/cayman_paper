@@ -478,7 +478,7 @@ p <-  ggplot() +
         geom_line(data = daa %>% filter((str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA") %>% filter(growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g), linetype = 'dashed') +
         geom_line(data = daa %>% filter((str_detect(strain, "DSM26961") | str_detect(strain, "DSM13479")) & media == "WCA") %>% filter(!growth_inferred), aes(x = time_h, y = OD + startingOD, color = condition, group = g)) +
         theme_classic() +
-        facet_grid(strain ~ medium_batch) +
+        facet_wrap(. ~ strain, ncol = 1) +
         xlab("Time [h]") +
         ylab("OD") +
         geom_vline(
@@ -516,6 +516,7 @@ p <-  ggplot() +
             long = unit(1.75,"mm")            
             )   +
         scale_fill_identity() +
+        theme_presentation() +
         theme(
             strip.text.x = element_text(size = 7),
             strip.text.y = element_text(angle = 0, size = 7),
@@ -530,8 +531,8 @@ p <-  ggplot() +
 ggsave(
     plot = p, 
     filename = "/g/scb/zeller/karcher/cayman_paper/figures/revisions/new_Fig3B.pdf", 
-    width = 2.3*1.3, 
-    height = 3*1.5,
+    width = 2.3*0.9, 
+    height = 3*1.4,
     units = "in"
 )
 

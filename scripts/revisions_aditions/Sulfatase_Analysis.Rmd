@@ -1,0 +1,67 @@
+---
+title: "Sulfatase_Analysis"
+author: "QD"
+date: "2025-12-11"
+output: html_document
+---
+
+## Load SulfAtlas output data
+```{r}
+sulfatase_files <- list.files(path = here("data", "SulfAtlas_Results"), pattern = "\\.csv$", full.names = TRUE)
+
+sulfatases <- sulfatase_files %>% map_dfr(~ read_delim(.x, delim = "\t", col_types = cols()))
+
+## Only genome GUT_GENOME255896 does not have any sulfatase hits, so need to add it back in for correct statistics.
+
+## Load additional files to get taxonomic mappings
+cazy_files <- list.files(path = here("data", "SulfAtlas_Results"), pattern = "annotations\\.tsv$", full.names = TRUE)
+
+cazy_annotations <- cazy_files %>% map_dfr(~ read_delim(.x, delim = "\t", col_types = cols())) %>% select(1:7, Species)
+```
+
+## Now make the summary stats and the plot
+```{r}
+## Have to add back in the genome (GUT_GENOME255896, Eisenbergiella) without relevant sulfatases to have the correct statistics
+sulfatase_summary_stats <- sulfatases %>% separate(protein, into = c("genome", "start_contig", "end_contig", "strandedness", "ORF_ID"), sep = "___", remove = FALSE) %>% separate(genome, into = c("genome_1", "genome_2", "contig_ID"), sep = "_", remove = FALSE) %>% select(-c(genome_1, genome_2))
+
+sulfatase_summary_stats$genome <- gsub("_[0-9].*", "", sulfatase_summary_stats$genome)
+sulfatase_summary_stats$genome <- gsub("\\.faa.*", "", sulfatase_summary_stats$genome) ## For Akkermansia genomes
+sulfatase_summary_stats <- sulfatase_summary_stats %>% select(genome, HMM, score)
+sulfatase_summary_stats <- sulfatase_summary_stats %>% add_row(genome = "GUT_GENOME255896", HMM = "mock", score = 0) 
+
+## Now all genomes are in there, extract them and then start counting number of genomic copies per genome 
+all_genome_names <- unique(sulfatase_summary_stats$genome)
+sulfatase_summary_stats <- sulfatase_summary_stats %>% filter(HMM == "S1_4" | HMM == "S1_11" | HMM == "S1_15" | HMM == "S1_16" | HMM == "S1_20") %>% filter(score > 300)
+
+sulfatase_summary_stats_grouped <- sulfatase_summary_stats %>% group_by(genome, HMM) %>% summarise(copy_number_per_S1 = n()) %>% ungroup()
+## Put the missing 5 genomes back in 
+setdiff(all_genome_names, unique(sulfatase_summary_stats_grouped$genome))
+
+sulfatase_summary_stats_grouped <- sulfatase_summary_stats_grouped %>% add_row(genome = "GUT_GENOME103694", HMM = "S1_4", copy_number_per_S1 = 0) %>% add_row(genome = "GUT_GENOME098445", HMM = "S1_4", copy_number_per_S1 = 0) %>% add_row(genome = "GUT_GENOME185279", HMM = "S1_4", copy_number_per_S1 = 0) %>% add_row(genome = "GUT_GENOME192012", HMM = "S1_4", copy_number_per_S1 = 0) %>% add_row(genome = "GUT_GENOME255896", HMM = "S1_4", copy_number_per_S1 = 0)
+
+## To get in all the required 0s have to do some data wrangling and also add in species names per genome
+sulfatase_summary_stats_wide <- sulfatase_summary_stats_grouped %>% pivot_wider(names_from = "genome", values_from = copy_number_per_S1, values_fill = 0)
+
+sulfatase_summary_stats_long <- sulfatase_summary_stats_wide %>% pivot_longer(!HMM, names_to = "genome", values_to = "genomic_copy_number") 
+sulfatase_summary_stats_long <- sulfatase_summary_stats_long %>% left_join(cazy_annotations %>% select(genome, Species), by = "genome") %>% distinct() 
+sulfatase_summary_stats_long$Genus <- sulfatase_summary_stats_long$Species
+sulfatase_summary_stats_long$Genus <- gsub(" \\[.*", "", sulfatase_summary_stats_long$Genus)
+sulfatase_summary_stats_long$Genus <- gsub("^[^ ]* ", "", sulfatase_summary_stats_long$Genus)
+sulfatase_summary_stats_long$Genus <- gsub(" .*", "", sulfatase_summary_stats_long$Genus)
+sulfatase_summary_stats_long <- sulfatase_summary_stats_long %>% mutate(Genus = replace_na(Genus, "Akkermansia")) ## As all NAs are Akkermansia genomes
+
+## With summary statistics
+sulfatase_summary_stats_long_summary <- sulfatase_summary_stats_long %>% group_by(Genus, HMM) %>% summarize(mean_value = mean(genomic_copy_number), sd_value = sd(genomic_copy_number)) %>% ungroup()
+
+sulfatase_summary_stats_long_summary$HMM <- fct_relevel(sulfatase_summary_stats_long_summary$HMM, "S1_4", after = 0)
+
+ggplot(sulfatase_summary_stats_long_summary) +
+  theme_publication() +
+  aes(x = HMM, y = mean_value) +
+  geom_point(fill = "lightblue") +
+  geom_errorbar(aes(ymin = mean_value - sd_value, ymax = mean_value + sd_value), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  facet_wrap(~Genus) +
+  xlab("Mucin-targeting sulfatase subfamilies") +
+  ylab("Genomic copy number")
+```

@@ -7,9 +7,8 @@ data/motus_level_mean_cazy_abundances.tsv
 data/paths_to_276_rep_genomes.txt
 data/pg3_2_motu_tax_v2
 data/paths_to_276_rep_genomes_SAFETY.txt
-<<<<<<< HEAD
-.Rproj.user
-=======
+data/SulfAtlas_Results/Eisenbergiella_cazy_annotations.tsv
+data/SulfAtlas_Results/Hungatella_cazy_annotations.tsv
 scripts/revisions_aditions/rnaseq/data/v3
 scripts/revisions_aditions/rnaseq/scripts/.nextflow
 scripts/revisions_aditions/rnaseq/scripts/work
@@ -17,4 +16,3 @@ scripts/revisions_aditions/rnaseq/scripts/null
 scripts/revisions_aditions/rnaseq/data
 scripts/revisions_aditions/rnaseq/results
 scripts/revisions_aditions/rnaseq/scripts/agat_1.4.2--pl5321hdfd78af_0.sif
->>>>>>> 6ab5ae823b36e0fafda2d9e76a837860c9b1e9da

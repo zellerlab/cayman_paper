@@ -253,7 +253,7 @@ CRC_df_list_rel_abun_long_merged$Study_ID <- gsub(".*\\/", "", CRC_df_list_rel_a
 ## Prepare metadata for CRC sets properly
 ```{r}
 meta_CRC <- read_delim(here("data", "Metadata", "20230203_All.wgs.meta.data.updated.txt"))
-meta_CRC <- meta_CRC %>% rename(Sample_ID = "SampleID")
+meta_CRC <- meta_CRC %>% dplyr::rename("SampleID" = Sample_ID)
 meta_CRC <- as.data.frame(meta_CRC)
 rownames(meta_CRC) <- meta_CRC$SampleID
 
@@ -261,7 +261,7 @@ IT_sample_map <- read_delim(here("data", "CRC", "Mapping_Data", "IT_sample_map.t
 IT_sample_map <- IT_sample_map %>% select(Library_Name, Run)
 
 CRC_df_list_rel_abun_long_merged <- left_join(CRC_df_list_rel_abun_long_merged, IT_sample_map, by = c("SampleID" = "Library_Name")) 
-CRC_df_list_rel_abun_long_merged <- CRC_df_list_rel_abun_long_merged %>% mutate(Run = coalesce(Run, SampleID)) %>% select(-SampleID) %>% rename(Run = "SampleID")
+CRC_df_list_rel_abun_long_merged <- CRC_df_list_rel_abun_long_merged %>% mutate(Run = coalesce(Run, SampleID)) %>% select(-SampleID) %>% dplyr::rename("SampleID" = Run)
 
 unique_samples <- unique(CRC_df_list_rel_abun_long_merged$SampleID)
 setdiff(meta_CRC$SampleID, unique_samples)

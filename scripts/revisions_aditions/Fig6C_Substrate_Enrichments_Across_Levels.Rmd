@@ -1,0 +1,386 @@
+---
+title: "Fig6C_Substrate_Enrichments_Across_Levels"
+author: "QD"
+date: "2025-12-22"
+output: html_document
+---
+
+
+```{r}
+library(igraph)
+library(ggraph)
+library(tidygraph)
+library(ggforce)
+library(tidyverse)
+library(readxl)
+```
+
+## Create node lists for the layout of the network graph
+```{r}
+# Create node data frame
+layer1 <- data.frame(name = paste0("L1_", 1:5), layer = 1)
+layer2 <- data.frame(name = paste0("L2_", 1:3), layer = 2)
+layer3 <- data.frame(name = paste0("L3_", 1:8), layer = 3)
+
+# Combine all layers
+nodes <- rbind(layer1, layer2, layer3)
+
+g <- make_empty_graph(n = 0, directed = TRUE) %>%
+  add_vertices(nrow(nodes), name = nodes$name, layer = nodes$layer)
+
+layout <- matrix(NA, nrow = nrow(nodes), ncol = 2)
+for (layer in 1:3) {
+  idx <- which(nodes$layer == layer)
+  x_pos <- seq(-1, 1, length.out = length(idx))
+  y_pos <- rep(-layer, length(idx))  # layer 1 at top, layer 3 at bottom
+  layout[idx, ] <- cbind(x_pos, y_pos)
+}
+
+## Add edges
+edge_df <- data.frame(from = c("L1_1", "L1_1", "L1_1", "L2_1", "L2_1", "L2_1", "L2_1", "L2_1", "L2_1", "L2_1", "L2_3"),
+                      to   = c("L2_1", "L2_2", "L2_3", "L3_1", "L3_2", "L3_3", "L3_4", "L3_5", "L3_6", "L3_7", "L3_8"))
+
+# "L1_5", "L2_4" , "L2_4" , "L3_9"
+# Step 2: Flatten and transpose for igraph
+edge_vec <- as.vector(t(edge_df[, c("from", "to")]))
+
+# Step 3: Add edges
+g <- add_edges(g, edge_vec)
+
+
+```
+
+## Calculate the enrichments scores (NES) from the GSEA across the different substrate levels
+```{r}
+library(fgsea)
+pathways_FAD_1 <- list()
+
+for (group in levels(glycan_annotations_final_cleaned_long_GSEA$FUNCTION_AT_DESTINATION_1)){
+  print(group)
+  tmp_df <- glycan_annotations_final_cleaned_long_GSEA %>% dplyr::filter(FUNCTION_AT_DESTINATION_1==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_1[group] <- group
+  pathways_FAD_1[[length(pathways_FAD_1)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping
+
+results_associations_FAD_1 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% glycan_annotations_final_cleaned_long_GSEA$Subfamily)
+ranks <- results_associations_FAD_1$fc
+names(ranks) <- results_associations_FAD_1$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_W_NW_FAD1 <- fgseaMultilevel(pathways_FAD_1, ranks, minSize=1, maxSize = 500)
+head(fgseaRes_W_NW_FAD1[order(padj, -abs(NES)), ], n=10)
+plotEnrichment(pathways_FAD_1[["GAG"]], ranks)
+plotEnrichment(pathways_FAD_1[["DF"]], ranks)
+plotEnrichment(pathways_FAD_1[["PG"]], ranks)
+plotEnrichment(pathways_FAD_1[["Mucin"]], ranks)
+
+## Test at different glycan annotation level (FAD2)
+
+test <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_2,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_2 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_2) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_2) ## Unknown is removed as this is a non-informative substrate level.
+test$FUNCTION_AT_DESTINATION_2 <- as.factor(test$FUNCTION_AT_DESTINATION_2)
+test$Subfamily <- gsub("([A-Z])_","\\1",test$Subfamily)
+
+## Now convert into list of pathways with proper format for GSEA testing
+
+pathways_FAD_2 <- list()
+
+for (group in levels(test$FUNCTION_AT_DESTINATION_2)){
+  print(group)
+  tmp_df <- test %>% dplyr::filter(FUNCTION_AT_DESTINATION_2==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_2[group] <- group
+  pathways_FAD_2[[length(pathways_FAD_2)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
+
+results_associations_FAD_2 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_FAD_2$fc
+names(ranks) <- results_associations_FAD_2$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_W_NW_FAD2 <- fgseaMultilevel(pathways_FAD_2, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes_W_NW_FAD2[order(padj, -abs(NES)), ], n=10)
+
+## Test at different glycan annotation level (FAD3)
+test <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_3,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_3 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_3) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_3) ## Unknown is removed as this is a non-informative substrate level.
+test$FUNCTION_AT_DESTINATION_3 <- as.factor(test$FUNCTION_AT_DESTINATION_3)
+test$Subfamily <- gsub("([A-Z])_","\\1",test$Subfamily)
+
+## Now convert into list of pathways with proper format for GSEA testing
+
+pathways_FAD_3 <- list()
+
+for (group in levels(test$FUNCTION_AT_DESTINATION_3)){
+  print(group)
+  tmp_df <- test %>% dplyr::filter(FUNCTION_AT_DESTINATION_3==group)
+  cazymes <- tmp_df %>% select(Subfamily) %>% pull()
+  pathways_FAD_3[group] <- group
+  pathways_FAD_3[[length(pathways_FAD_3)]] <- cazymes
+}
+
+## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
+
+results_associations_FAD_3 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_FAD_3$fc
+names(ranks) <- results_associations_FAD_3$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_W_NW_FAD3 <- fgseaMultilevel(pathways_FAD_3, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+head(fgseaRes_W_NW_FAD3[order(padj, -abs(NES)), ], n=10)
+plotEnrichment(pathways_FAD_3[["GAG"]], ranks)
+```
+
+## Get enrichment scores (NES) from the GSEA so the color gradient can be plotted as such
+```{r}
+FAD_1_WNW_fgsea_results <- head(fgseaRes_W_NW_FAD1[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "Other") ## Should consider to remove glycogen here 2, since only 2 CAZymes in there.
+FAD_2_WNW_fgsea_results <- head(fgseaRes_W_NW_FAD2[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "PG") ## Since PG is already in FAD_1
+FAD_3_WNW_fgsea_results <- head(fgseaRes_W_NW_FAD3[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "PG" & size > 10) ## Since PG is already in FAD_1 and only retain nodes with > 10 CAZymes annotated for visualization purposes. Discuss this with Georg though.
+complete_fgsea_results_WNW <- rbind(FAD_1_WNW_fgsea_results, FAD_2_WNW_fgsea_results, FAD_3_WNW_fgsea_results)
+
+complete_fgsea_results_WNW <- complete_fgsea_results_WNW %>% mutate(pathway = recode(pathway, "GAG" = "Glycosaminoglycan","DF" = "Dietary Fiber", "PG" = "Peptidoglycan", "Resistant_oligosaccharides" = "Resistant oligosaccharides", "Resistant_starch" = "Resistant starch", "Mannans_and_Heteromannans" = "Mannans and \nheteromannans", "Amylose_and_Amylopectin" = "Amylose and \namylopectin", "NSP" = "Non-starch \npolysaccharides"))
+```
+
+## Now add all the glycan names instead of the L1 etc
+```{r}
+# Get current names
+current_names <- V(g)$name
+
+# Create a named vector mapping old names to new names
+rename_map <- c("L1_1" = "Dietary Fiber", "L1_2" = "Glycosaminoglycan", "L1_3" = "Mucin", "L1_4" = "Glycogen", "L1_5" = "Peptidoglycan", "L2_1" = "Non-starch \npolysaccharides", "L2_2" = "Resistant oligosaccharides", "L2_3" = "Resistant starch", "L2_4" = "Peptidoglycan", "L3_1" = "Cellulose", "L3_2" = "Pectin", "L3_3" = "Glycoprotein", "L3_4" = "Gum", "L3_5" = "Mannans and \nheteromannans", "L3_6" = "Hemicellulose", "L3_7" = "Chitin", "L3_8" = "Amylose and \namylopectin", "L3_9" = "Peptidoglycan")
+
+# Rename nodes by replacing old names with new ones where applicable
+new_names <- ifelse(current_names %in% names(rename_map),
+                    rename_map[current_names],
+                    current_names)
+
+# Assign back to the graph
+V(g)$name <- new_names
+
+substrate_significance <- data.frame(
+  name = complete_fgsea_results_WNW$pathway,
+  Value = complete_fgsea_results_WNW$padj, ## p-value
+  EnrichmentStatus = complete_fgsea_results_WNW$NES) ## This is the NES from the FGSEA
+
+# Step 1: Add the values as a vertex attribute in your graph
+
+# Match the node names and assign corresponding values (or NA if no match)
+matched <- match(V(g)$name, substrate_significance$name)
+V(g)$value_label <- substrate_significance$Value[matched]
+V(g)$enrichment_status <- substrate_significance$EnrichmentStatus[matched]
+V(g)$is_significant <- !is.na(V(g)$value_label) & V(g)$value_label < 0.05 ## To have a significance label
+```
+
+
+## Convert to tidygraph object and compute layout
+```{r}
+tg <- as_tbl_graph(g)
+
+layout_df <- tg %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  group_by(layer) %>%
+  mutate(
+    x = seq(-1, 1, length.out = n()),
+    y = -1 * (layer - 1) * 3  # Increase spacing between layers (e.g., 3 units apart)
+  ) %>%
+  ungroup()
+
+layout_df <- as_tibble(tg) %>%
+  group_by(layer) %>%
+  mutate(
+    x = seq(-1, 1, length.out = n()) + 1.5,  # shift right
+    y = -1.1 * (layer - 1) ## The lower the -x (so closer to) *, the more the white space is reduced
+  ) %>%
+  ungroup()
+
+coords <- layout_df[, c("x", "y")]
+tg <- tg %>% activate(nodes) %>% mutate(x = coords$x, y = coords$y, enrichment_status = enrichment_status)
+
+```
+
+## Postion the labels
+```{r}
+label_positions <- layout_df %>%
+  group_by(layer) %>%
+  summarise(x = mean(x), y = unique(y)) %>%
+  mutate(y = y - 0.2)
+```
+
+## Get different type of edges
+```{r}
+layout_df <- layout_df %>% mutate(original_node_name = nodes$name)
+
+make_elbow_edges <- function(edge_df, layout_df, vertical_step = 1) {
+  edge_df %>%
+    left_join(layout_df, by = c("from" = "original_node_name")) %>%
+    dplyr::rename(x_from = x, y_from = y) %>%
+    left_join(layout_df, by = c("to" = "original_node_name")) %>%
+    dplyr::rename(x_to = x, y_to = y) %>%
+    rowwise() %>%
+    do({
+      #mid_y <- (.$y_from + .$y_to) / 2  # halfway or consistent elbow height
+      mid_y <- .$y_to + 0.5 ## To adapt the height of where the horizontal line split occurs
+      
+      tibble(
+        x = c(.$x_from, .$x_from, .$x_to),
+        y = c(.$y_from, mid_y, mid_y),
+        xend = c(.$x_from, .$x_to, .$x_to),
+        yend = c(mid_y, mid_y, .$y_to)
+      )
+    }) %>%
+    bind_rows()
+}
+
+## This may have to be debugged for some reason I don't understand yet.
+
+edge_segments <- make_elbow_edges(edge_df, layout_df)
+```
+
+## Layout that is more adapted to the ultimate publication
+```{r}
+network_substrate_graphW_NW <- ggraph(tg, layout = "manual", x = V(g)$x, y = V(g)$y) +
+  geom_mark_rect(aes(x = x, y = y, group = factor(layer)),
+                 expand = unit(22, "pt"), color = "white", fill = "lightgrey", alpha = 0.2) +
+  #geom_edge_link(edge_width = 0.6, alpha = 0.5, color = "black") + ## Have to play a bit with the edge_with still to get this to work properly
+  geom_segment(data = edge_segments, aes(x = x, y = y, xend = xend, yend = yend), color = "gray50", linewidth = 0.6) +
+  geom_node_point(data = function(x) dplyr::filter(x, is_significant), shape = 21, size = 8.5, stroke = 0.9, fill = NA, color = "grey20") + ## Draw the ring around the significant nodes
+  geom_node_point(aes(color = enrichment_status), size = 8) +
+  scale_color_gradient2(low = "#3B6FB6", mid = "lightgrey", high = "#D41646", midpoint = 0, na.value = "lightgrey", name = "NES") +
+  # Node names on top
+  #geom_node_text(aes(label = name), nudge_y = 0.4, size = 2) + 
+  # Node names below
+  geom_node_text(aes(label = name), nudge_y = -0.28, size = 1.8) + 
+  # Values inside nodes, black color
+  geom_node_text(aes(label = ifelse(value_label < 0.05, format(value_label, digits = 2, scientific = TRUE), "")), color = "black", size = 1.5) +
+  theme_void() +
+  theme(legend.title = element_text(size = 6), legend.text  = element_text(size = 5), legend.key.size = unit(0.65, "lines")) +
+  theme(legend.position = c(0.5, 1.15), legend.justification = "center", legend.direction = "horizontal", plot.margin = margin(t = 32,  r = 15, b = 50, l = 15)) + # x = center, y = slightly above top
+  coord_cartesian(clip = "off")
+```
+
+## Now have the same for CRC, so Main Figure 6C
+```{r}
+## FAD1 testing
+
+results_associations_FAD_1 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_FAD_1$fc
+names(ranks) <- results_associations_FAD_1$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing
+
+set.seed(1000)
+fgseaRes_CRC <- fgseaMultilevel(pathways_FAD_1, ranks, minSize=1, maxSize = 500, nproc = 1)
+
+##FAD2
+
+results_associations_FAD_2 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_FAD_2$fc
+names(ranks) <- results_associations_FAD_2$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing at FAD2
+
+set.seed(1000)
+fgseaRes_CRC_FAD_2 <- fgseaMultilevel(pathways_FAD_2, ranks, minSize=1, maxSize = 500, nproc = 1)
+
+## FAD3
+
+results_associations_FAD_3 <- crc_meta_random_effect_study_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+ranks <- results_associations_FAD_3$fc
+names(ranks) <- results_associations_FAD_3$cazyme_fam
+head(ranks)
+barplot(sort(ranks, decreasing = T))
+
+## Perform the actual testing at FAD3
+
+set.seed(1000)
+fgseaRes_CRC_FAD_3 <- fgseaMultilevel(pathways_FAD_3, ranks, minSize=1, maxSize = 500, nproc = 1) ## For some reason the nproc = 1 is necessary for the results to be fully reproducible
+```
+
+```{r}
+## Get enrichment scores (NES) from the GSEA so the color gradient can be plotted as such
+FAD_1_CRC_fgsea_results <- head(fgseaRes_CRC[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "Other") ## Should consider to remove glycogen here 2, since only 2 CAZymes in there.
+FAD_2_CRC_fgsea_results <- head(fgseaRes_CRC_FAD_2[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "PG") ## Since PG is already in FAD_1
+FAD_3_CRC_fgsea_results <- head(fgseaRes_CRC_FAD_3[order(padj, -abs(NES)), ], n=20) %>% filter(pathway != "PG" & size > 10) ## Since PG is already in FAD_1 and only retain nodes with > 10 CAZymes annotated for visualization purposes. Discuss this with Georg though.
+complete_fgsea_results_crc <- rbind(FAD_1_CRC_fgsea_results, FAD_2_CRC_fgsea_results, FAD_3_CRC_fgsea_results)
+
+complete_fgsea_results_crc <- complete_fgsea_results_crc %>% mutate(pathway = recode(pathway, "GAG" = "Glycosaminoglycan","DF" = "Dietary Fiber", "PG" = "Peptidoglycan", "Resistant_oligosaccharides" = "Resistant oligosaccharides", "Resistant_starch" = "Resistant starch", "Mannans_and_Heteromannans" = "Mannans and \nheteromannans", "Amylose_and_Amylopectin" = "Amylose and \namylopectin", "NSP" = "Non-starch \npolysaccharides"))
+```
+
+## Now build up the network graph again, though some steps are not necessary to be repeated as they are already there for the W/NW analysis
+```{r}
+substrate_significance <- data.frame(
+  name = complete_fgsea_results_crc$pathway,
+  Value = complete_fgsea_results_crc$padj, ## p-value
+  EnrichmentStatus = complete_fgsea_results_crc$NES) ## This is the NES from the FGSEA
+
+# Step 1: Add the values as a vertex attribute in your graph
+
+# Match the node names and assign corresponding values (or NA if no match)
+matched <- match(V(g)$name, substrate_significance$name)
+V(g)$value_label <- substrate_significance$Value[matched]
+V(g)$enrichment_status <- substrate_significance$EnrichmentStatus[matched]
+V(g)$is_significant <- !is.na(V(g)$value_label) & V(g)$value_label < 0.05 ## To have a significance label
+
+tg <- as_tbl_graph(g)
+
+layout_df <- tg %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  group_by(layer) %>%
+  mutate(
+    x = seq(-1, 1, length.out = n()),
+    y = -1 * (layer - 1) * 3  # Increase spacing between layers (e.g., 3 units apart)
+  ) %>%
+  ungroup()
+
+layout_df <- as_tibble(tg) %>%
+  group_by(layer) %>%
+  mutate(
+    x = seq(-1, 1, length.out = n()) + 1.5,  # shift right
+    y = -1.1 * (layer - 1) ## The lower the -x (so closer to) *, the more the white space is reduced
+  ) %>%
+  ungroup()
+
+coords <- layout_df[, c("x", "y")]
+tg <- tg %>% activate(nodes) %>% mutate(x = coords$x, y = coords$y, enrichment_status = enrichment_status)
+
+Fig6C_network_substrate_graph <- ggraph(tg, layout = "manual", x = V(g)$x, y = V(g)$y) +
+  geom_mark_rect(aes(x = x, y = y, group = factor(layer)),
+                 expand = unit(22, "pt"), color = "white", fill = "lightgrey", alpha = 0.2) +
+  #geom_edge_link(edge_width = 0.6, alpha = 0.5, color = "black") + ## Have to play a bit with the edge_with still to get this to work properly
+  geom_segment(data = edge_segments, aes(x = x, y = y, xend = xend, yend = yend), color = "gray50", linewidth = 0.6) +
+  geom_node_point(data = function(x) dplyr::filter(x, is_significant), shape = 21, size = 8.5, stroke = 0.9, fill = NA, color = "grey20") + ## Draw the ring around the significant nodes
+  geom_node_point(aes(color = enrichment_status), size = 8) +
+  scale_color_gradient2(low = "#3B6FB6", mid = "lightgrey", high = "#D41646", midpoint = 0, na.value = "lightgrey", name = "NES") +
+  # Node names on top
+  #geom_node_text(aes(label = name), nudge_y = 0.4, size = 2) + 
+  # Node names below
+  geom_node_text(aes(label = name), nudge_y = -0.28, size = 1.8) + 
+  # Values inside nodes, black color
+  geom_node_text(aes(label = ifelse(value_label < 0.05, format(value_label, digits = 2, scientific = TRUE), "")), color = "black", size = 1.5) +
+  theme_void() +
+  theme(legend.title = element_text(size = 6), legend.text  = element_text(size = 5), legend.key.size = unit(0.65, "lines")) +
+  theme(legend.position = c(0.5, 1.15), legend.justification = "center", legend.direction = "horizontal", plot.margin = margin(t = 32,  r = 15, b = 50, l = 15)) + # x = center, y = slightly above top
+  coord_cartesian(clip = "off")
+```
+

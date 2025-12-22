@@ -1,0 +1,50 @@
+---
+title: "Substrate_Annotation_Comparisons"
+author: "QD"
+date: "2025-12-22"
+output: html_document
+---
+
+
+```{r}
+completed_substrate_annotations_20250219 <- read_xlsx(here("data/Glycan_Annotations/20250219_Table_S1_incl_dbCAN3_annotations.xlsx")) %>% drop_na(Agreement)
+completed_substrate_annotations_20230607 <- read_xlsx(here("data/Glycan_Annotations/20230607_glycan_annotations_cleaned.xlsx")) %>% filter(Subfamily %in% completed_substrate_annotations_20250219$Subfamily)
+
+completed_substrate_annotations_20250219 <- completed_substrate_annotations_20250219 %>% left_join(completed_substrate_annotations_20230607 %>% select(Subfamily, Glycan_annotation) %>% rename(Glycan_annotation = "Glycan_annotation_2023"), by = "Subfamily")
+
+
+completed_substrate_annotations_20250219 <- completed_substrate_annotations_20250219 %>% mutate(Changes_to_glycans = if_else(Glycan_annotation == Glycan_annotation_2023, "Not_Changed", "Changed"))
+
+completed_substrate_annotations_20250219_final <- completed_substrate_annotations_20250219 %>%
+  mutate(
+    Agreement_plus_changes_yes_no = case_when(
+      Changes_to_glycans == "Not_Changed" & (Agreement == "Largely agree" | str_starts(Agreement, "Agree, in favor of")) ~ "Agree, no change",
+      Changes_to_glycans == "Not_Changed" & Agreement == "Disagree, in favor of our annotation" ~ "Disagree, no change",
+      Changes_to_glycans == "Changed" & (Agreement == "Agree, in favor of our annotation" | Agreement == "Agree, in favor of neither and corrected to a better glycan category" | Agreement == "Agree, in favor of our annotation with minor edit (see comments)
+" | str_starts(Agreement, "Agree, in favor of our annotation with minor")) ~ "Agree, minor change",
+      Changes_to_glycans == "Changed" & Agreement == "Largely agree" ~ "Agree, minor change",
+      Changes_to_glycans == "Changed" & str_starts(Agreement, "Agree, in favor of dbCAN") ~ "Agree, minor change",
+      Changes_to_glycans == "Changed" & str_starts(Agreement, "Disagree, in favor of our annot") ~ "Disagree, minor change",
+      Changes_to_glycans == "Changed" & str_starts(Agreement, "Disagree, in favor of dbCAN ") ~ "Disagree, major change",
+      Subfamily == "CBM51" ~ "Agree, minor change",
+      
+      TRUE ~ NA_character_  # Default or fill with other categories if needed
+    )
+  )
+
+desired_legend_order <- c("Agree, no change", "Agree, minor change", "Disagree, no change", "Disagree, minor change", "Disagree, major change")
+
+counts_agreements <- completed_substrate_annotations_20250219_final %>% filter(!is.na(Agreement_plus_changes_yes_no)) %>% dplyr::count(Agreement_plus_changes_yes_no) %>% mutate(Agreement_plus_changes_yes_no = factor(Agreement_plus_changes_yes_no, levels = desired_legend_order), ypos = cumsum(n) - 0.5 * n)
+
+colors <- c("darkgreen", "lightgreen", "darkorange1", "red1", "red4")
+
+Fig_S1_pie_chart_annotation <- ggplot(counts_agreements, aes(x = "", y = n, fill = Agreement_plus_changes_yes_no)) +
+  theme_publication() +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  labs(fill = "Agreement Status", title = "Distribution of Agreement_plus_changes_yes_no") +
+  #geom_text(aes(y = ypos, label = n), color = "white", size = 5) + ## This gets really ugly 
+  scale_fill_manual(values = colors) +
+  theme(legend.position = "right")
+
+```

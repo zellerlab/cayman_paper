@@ -84,9 +84,8 @@ pcoa <- pcoa %>%
                                      #mutate(phylum = ifelse(genus == "Collinsella", "Actinobacteria", phylum)) %>%
                                      mutate(`PCo 2` = -1 * `PCo 2`) %>%
                                      mutate(`PCo 1` = 1 * `PCo 1`)
-ggsave(plot = ggplot() + geom_point(data = pcoa %>% filter(phylum != "Synergistetes"), aes(x = `PCo 1`, y = `PCo 2`, color = phylum), alpha = 0.5) +
-  #geom_text(aes(label = genus, y = yOffset)) +
-  geom_text_repel(data = pcoa %>%
+
+pcoa <- pcoa %>%
                     mutate(kickBool = pmap_lgl(list(`PCo 1`, `PCo 2`, species), function(po1, po2, g) {
                       # These are equivalent to the top 8 mucin-targetting taxa from 2B
                       if (g %in% c("Akkermansia muciniphila",
@@ -115,7 +114,13 @@ ggsave(plot = ggplot() + geom_point(data = pcoa %>% filter(phylum != "Synergiste
                         return(F)
                       }
                     })) %>%
-                    mutate(species = ifelse(!kickBool, "", species)),
+                    mutate(species = ifelse(!kickBool, "", species)) %>%
+                    arrange(kickBool)
+
+ggsave(plot = ggplot() + geom_point(data = pcoa %>% filter(phylum != "Synergistetes"), aes(x = `PCo 1`, y = `PCo 2`, color = phylum), alpha = 0.5, size = 1.5) +
+    geom_point(data = pcoa %>% filter(species != ""), aes(x = `PCo 1`, y = `PCo 2`), color = 'black', size = 1.5, alpha = 1, shape = 1) +
+  #geom_text(aes(label = genus, y = yOffset)) +
+  geom_text_repel(data = pcoa,
                   aes(x = `PCo 1`, y = `PCo 2`, label = species), color = 'black', size = 3.5, min.segment.length = 0, force = 1, nudge_x = 0.2, max.overlaps = Inf) +
   theme_classic() +
   scale_color_manual(values = phylum_color_map) +
@@ -155,7 +160,8 @@ substrateNsBymOTU <- substrateNsBymOTU %>%
 
 
 pcoa_o <- pcoa %>%
-  inner_join(substrateNsBymOTU, by = 'mOTU_ID')
+  inner_join(substrateNsBymOTU, by = 'mOTU_ID') %>%
+  arrange(kickBool)
 
 plots <- list()
 for (substrate in c(
@@ -170,8 +176,9 @@ for (substrate in c(
         substrate < -3 ~ -3,
         TRUE ~ substrate
       )) 
-  p <- ggplot(tmp) +
-    geom_point(aes(x = `PCo 1`, y = `PCo 2`, color = `Substrate enrichment`), size = 0.5) +
+  p <- ggplot() +
+    geom_point(data = tmp, aes(x = `PCo 1`, y = `PCo 2`, color = `Substrate enrichment`), size = 0.5) +
+    geom_point(data = tmp %>% filter(species != ""), aes(x = `PCo 1`, y = `PCo 2`), color = 'black', size = 0.75, shape = 1, stroke = 0.2) +
     theme_presentation() +
       scale_color_gradient2(
         low = "#0000FF",    # Blue for negative values

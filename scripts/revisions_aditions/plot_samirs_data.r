@@ -1,6 +1,7 @@
 # conda activate /g/scb2/zeller/karcher/mambaforge/envs/r_growth_analysis
 library(readxl)
 library(tidyverse)
+library(patchwork)
 #library(pracma)
 library(zoo)
 #library(ggembl)

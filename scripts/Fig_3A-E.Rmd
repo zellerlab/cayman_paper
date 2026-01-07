@@ -31,7 +31,8 @@ mycolors <- c("#FED470", "#FEC561", "#FEB651", "#FDA848", "#FD9A41", "#FD8D3C", 
 
 Fig3A <- plot_ordination(westernized_non_westernized_ps, pcoa_canberra, color="study_name_W_NW_info_n", title='PCoA (Canberra)') + theme_classic() + geom_point(size=1, alpha = 0.05) + labs(color="Study") + scale_color_manual(values=mycolors) + theme(axis.title=element_text(size=14),axis.text=element_text(size=14)) + guides(color=guide_legend(ncol = 1)) + xlab("PC1 [12.4%]") + ylab("PC2 [10.5%]") + annotate("text", x = 0, y = -0.33, label = "P-value = 0.001") + annotate("text", x = 0, y = -0.35, label = "paste(italic(R) ^ 2, \" = 0.066\")", parse = TRUE) #+ theme(legend.position = "right") + guides(color = "none")
 
-ggsave("N:/Users/Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3A.pdf", Fig3A, width = 120, height = 75, unit = "mm")
+ggsave(here("figures/Fig3A.pdf"), Fig3A, width = 120, height = 75, unit = "mm")
+
 ```
 
 ## Extended Data Fig 2
@@ -190,7 +191,7 @@ Fig_3C <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
   xlab("") +
   ylab("Mucin to DF ratio")
 
-ggsave("N:/Users/Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3C.pdf", Fig_3C, width = 35, height = 45, unit = "mm")
+ggsave(here("figures/Fig3C.pdf"), Fig_3C, width = 35, height = 45, unit = "mm")
 
 Fig_3D <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
   theme_classic() +
@@ -203,7 +204,7 @@ Fig_3D <- ggplot(RPKM_per_substrate_W_NW_substrate_ratios) +
   xlab("") +
   ylab("GAG to DF ratio")
 
-ggsave("N:/Users/Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3D.pdf", Fig_3D, width = 35, height = 45, unit = "mm")
+ggsave(here("figures/Fig3D.pdf"), Fig_3D, width = 35, height = 45, unit = "mm")
 ```
 
 ## Fig 3E
@@ -285,7 +286,7 @@ AAAABBBCCCC
 
 Fig3E <- Fig3E_1 + Fig3E_2 + Fig3E_3 + plot_layout(design = layout_matrix)
 
-ggsave("I:/mm-research/CMAT/User_Ducarmon_Quinten/EMBL/CAZy/Preliminary_Figures/Fig3E.pdf", Fig3E, width = 130, height = 80, unit = "mm")
+ggsave(here("figures/Fig3E.pdf"), Fig3E, width = 130, height = 80, unit = "mm")
 ```
 
 ## Extended Data Figs 5 and 6

@@ -83,17 +83,17 @@ plotEnrichment(pathways_FAD_1[["Mucin"]], ranks)
 
 ## Test at different glycan annotation level (FAD2)
 
-test <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_2,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_2 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_2) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_2) ## Unknown is removed as this is a non-informative substrate level.
-test$FUNCTION_AT_DESTINATION_2 <- as.factor(test$FUNCTION_AT_DESTINATION_2)
-test$Subfamily <- gsub("([A-Z])_","\\1",test$Subfamily)
+FAD2_annotations <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_2,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_2 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_2) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_2) ## Unknown is removed as this is a non-informative substrate level.
+FAD2_annotations$FUNCTION_AT_DESTINATION_2 <- as.factor(FAD2_annotations$FUNCTION_AT_DESTINATION_2)
+FAD2_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD2_annotations$Subfamily)
 
 ## Now convert into list of pathways with proper format for GSEA testing
 
 pathways_FAD_2 <- list()
 
-for (group in levels(test$FUNCTION_AT_DESTINATION_2)){
+for (group in levels(FAD2_annotations$FUNCTION_AT_DESTINATION_2)){
   print(group)
-  tmp_df <- test %>% dplyr::filter(FUNCTION_AT_DESTINATION_2==group)
+  tmp_df <- FAD2_annotations %>% dplyr::filter(FUNCTION_AT_DESTINATION_2==group)
   cazymes <- tmp_df %>% select(Subfamily) %>% pull()
   pathways_FAD_2[group] <- group
   pathways_FAD_2[[length(pathways_FAD_2)]] <- cazymes
@@ -101,7 +101,7 @@ for (group in levels(test$FUNCTION_AT_DESTINATION_2)){
 
 ## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
 
-results_associations_FAD_2 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+results_associations_FAD_2 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% FAD2_annotations$Subfamily)
 ranks <- results_associations_FAD_2$fc
 names(ranks) <- results_associations_FAD_2$cazyme_fam
 head(ranks)
@@ -114,9 +114,9 @@ fgseaRes_W_NW_FAD2 <- fgseaMultilevel(pathways_FAD_2, ranks, minSize=1, maxSize 
 head(fgseaRes_W_NW_FAD2[order(padj, -abs(NES)), ], n=10)
 
 ## Test at different glycan annotation level (FAD3)
-test <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_3,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_3 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_3) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_3) ## Unknown is removed as this is a non-informative substrate level.
-test$FUNCTION_AT_DESTINATION_3 <- as.factor(test$FUNCTION_AT_DESTINATION_3)
-test$Subfamily <- gsub("([A-Z])_","\\1",test$Subfamily)
+FAD3_annotations <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_3,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_3 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_3) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_3) ## Unknown is removed as this is a non-informative substrate level.
+FAD3_annotations$FUNCTION_AT_DESTINATION_3 <- as.factor(FAD3_annotations$FUNCTION_AT_DESTINATION_3)
+FAD3_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD3_annotations$Subfamily)
 
 ## Now convert into list of pathways with proper format for GSEA testing
 
@@ -132,7 +132,7 @@ for (group in levels(test$FUNCTION_AT_DESTINATION_3)){
 
 ## Now the fold change table. Should also filter out cazymes that have no annotation in the pathways of the respective grouping, as these cannot be included in the GSEA anyway.
 
-results_associations_FAD_3 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% test$Subfamily)
+results_associations_FAD_3 <- siamcat_NW_results_associations %>% filter(cazyme_fam %in% FAD3_annotations$Subfamily)
 ranks <- results_associations_FAD_3$fc
 names(ranks) <- results_associations_FAD_3$cazyme_fam
 head(ranks)
@@ -325,10 +325,6 @@ FAD3_annotations$FUNCTION_AT_DESTINATION_3 <- as.factor(FAD3_annotations$FUNCTIO
 FAD3_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD3_annotations$Subfamily)
 
 ## Now convert into list of pathways with proper format for GSEA testing
-
-FAD3_annotations <- glycan_annotations_final_cleaned_long %>% select(FUNCTION_AT_DESTINATION_3,Subfamily) %>% drop_na() %>% filter(!FUNCTION_AT_DESTINATION_3 == "Unknown") %>% group_by(FUNCTION_AT_DESTINATION_3) %>% distinct() %>% group_by(FUNCTION_AT_DESTINATION_3) ## Unknown is removed as this is a non-informative substrate level.
-FAD3_annotations$FUNCTION_AT_DESTINATION_3 <- as.factor(FAD3_annotations$FUNCTION_AT_DESTINATION_3)
-FAD3_annotations$Subfamily <- gsub("([A-Z])_","\\1",FAD3_annotations$Subfamily)
 
 pathways_FAD_3 <- list()
 

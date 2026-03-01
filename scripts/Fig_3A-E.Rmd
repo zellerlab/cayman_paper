@@ -323,7 +323,7 @@ alignment_rates_raw_W_NW_925 <- left_join(alignment_rates_raw_W_NW_925_higher, C
 CAZyme_count_df_925 <- CAZyme_count_df %>% filter(Sample %in% alignment_rates_raw_W_NW_925_higher$sample)
 ## Have to recompute sample numbers / study for these high alignment rates as inclusion / exclusion criterium.
 
-CAZyme_count_df_925_study <- CAZyme_count_df_925 %>% dplyr::count(study_name_W_NW_info) %>% rename(n = "n_align")
+CAZyme_count_df_925_study <- CAZyme_count_df_925 %>% dplyr::count(study_name_W_NW_info) %>% rename("n_align" = n)
 CAZyme_count_df_925 <- left_join(CAZyme_count_df_925, CAZyme_count_df_925_study, by = c("study_name_W_NW_info" = "study_name_W_NW_info"))
 CAZyme_count_df_925$n_aligntest <- paste("(n=", "", CAZyme_count_df_925$n_align)
 CAZyme_count_df_925$n_aligntest <- paste(CAZyme_count_df_925$n_aligntest, "", ")")

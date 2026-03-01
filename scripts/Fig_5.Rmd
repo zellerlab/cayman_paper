@@ -314,7 +314,7 @@ GAG_to_DF_CRC <- ggplot(RPKM_per_substrate_CRC_substrate_ratios) +
 
 ## Now compute ratios per study as a Supplementary figure
 RPKM_per_substrate_CRC_substrate_ratios_study <- RPKM_per_substrate_CRC_substrate_ratios %>% mutate(study_n = Study)
-count_samples_study <- meta(CRC_ps)
+count_samples_study <- microbiome::meta(CRC_ps)
 count_samples_study <- count_samples_study %>% dplyr::count(Study)
 RPKM_per_substrate_CRC_substrate_ratios_study <- left_join(RPKM_per_substrate_CRC_substrate_ratios_study, count_samples_study, by = "Study")
 RPKM_per_substrate_CRC_substrate_ratios_study$ntest <- paste("(n=", "", RPKM_per_substrate_CRC_substrate_ratios_study$n)

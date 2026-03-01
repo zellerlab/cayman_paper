@@ -3,7 +3,7 @@ library(tidyverse)
 library(ggsignif)
 source(here('scripts', 'utils.r'))
 
-p <- read_tsv(here('data', 'w_nw_profiles.tsv'))
+p <- read_tsv(here('data', '2024_08_12_w_nw_profiles.tsv'))
 
 (p %>%
     filter(genus == "g__Bacteroides") %>%

@@ -1,0 +1,13 @@
+tax_raw	sample	total_reads_million	aligned_percentage	mismatch_percentage	aligned_uniquely_percentage	species	strain	replicate	treatment	total_reads	treatmant
+E_tayi_DSM26961	CONTROL_REP1	17.296211	98.13	0.14	97.67	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP1	Without mucin	17296211	Without mucin
+E_tayi_DSM26961	CONTROL_REP2	14.809717	98.89	0.13	98.35	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP2	Without mucin	14809717	Without mucin
+E_tayi_DSM26961	CONTROL_REP3	15.463643999999999	98.26	0.13	97.9	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP3	Without mucin	15463644	Without mucin
+E_tayi_DSM26961	TREATMENT_REP1	20.201382	98.21	0.13	97.94	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP1	With mucin	20201382	With mucin
+E_tayi_DSM26961	TREATMENT_REP2	19.723788	98.45	0.14	97.93	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP2	With mucin	19723788	With mucin
+E_tayi_DSM26961	TREATMENT_REP3	22.506473	98.53	0.13	97.92	Eisenbergiella tayi	Eisenbergiella tayi (DMS26961)	REP3	With mucin	22506473	With mucin
+H_hathewayi_DSM13479	CONTROL_REP1	14.961165	93.12	1.28	26.56	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP1	Without mucin	14961165	Without mucin
+H_hathewayi_DSM13479	CONTROL_REP2	8.180764	94.03999999999999	0.12	88.27	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP2	Without mucin	8180764	Without mucin
+H_hathewayi_DSM13479	CONTROL_REP3	6.589407	95.99000000000001	0.14	91.26	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP3	Without mucin	6589407	Without mucin
+H_hathewayi_DSM13479	TREATMENT_REP1	14.814297	99.5	0.15	94.48	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP1	With mucin	14814297	With mucin
+H_hathewayi_DSM13479	TREATMENT_REP2	14.332514999999999	99.78	0.13	98.45	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP2	With mucin	14332515	With mucin
+H_hathewayi_DSM13479	TREATMENT_REP3	17.499571	99.77	0.14	98.14	Hungatella hathewayi	Hungatella hathewayi (DMS13479)	REP3	With mucin	17499571	With mucin
